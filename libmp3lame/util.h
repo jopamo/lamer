@@ -245,6 +245,8 @@ fast_log2(ieee754_float32_t x)
         FLOAT   decay;
         int     force_short_block_calc;
         int     experimental_transient_bias;
+        int     experimental_short_mask_relax;
+        int     experimental_short_transient_redistribute;
     } PsyConst_t;
 
 
@@ -265,6 +267,18 @@ fast_log2(ieee754_float32_t x)
         int     last_attacks[4];
 
         int     blocktype_old[2];
+
+        /*
+         * Published transient policy state for the encoded granule.
+         * Psycho analysis runs one granule ahead, so keep private
+         * current-call state separate from the delayed/published truth.
+         */
+        FLOAT   short_mask_score_rel_save[4];
+        unsigned char short_mask_final_mask_save[4];
+        signed char short_mask_pos_save[4];
+        FLOAT   short_mask_score_rel[2][4];
+        unsigned char short_mask_final_mask[2][4];
+        signed char short_mask_pos[2][4];
     } PsyStateVar_t;
 
 

@@ -1049,6 +1049,21 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
             trans->last_attack[chn] = (signed char) psv->last_attacks[chn];
         }
 
+        /* experimental: restore suppressed real attacks */
+        if (chn < 2 && gfc->cd_psy->experimental_transient_bias && trans != 0 && ns_uselongblock != 0) {
+            unsigned char const raw = trans->raw_mask[chn];
+            unsigned char const final = attack_mask4(ns_attacks[chn]);
+            if (raw != 0 && final == 0 && trans->score_rel[chn] > 1.0) {
+                int i;
+                for (i = 0; i < 4; ++i) {
+                    if (raw & (1u << i)) {
+                        ns_attacks[chn][i] = 2;
+                    }
+                }
+                ns_uselongblock = 0;
+            }
+        }
+
         if (chn < 2) {
             uselongblock[chn] = ns_uselongblock;
         }
@@ -1553,6 +1568,26 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
     vbrpsy_compute_block_type(cfg, uselongblock);
     mark_uselong_policy_adjustments(cfg, &trans, uselongblock, cfg->channels_out);
 
+    /*
+     * Publish delayed transient info for the encoded granule.
+     * The current detector result belongs to the next granule.
+     */
+    {
+        int chn;
+        for (chn = 0; chn < 4; ++chn) {
+            psv->short_mask_score_rel[gr_out][chn] =
+                psv->short_mask_score_rel_save[chn];
+            psv->short_mask_final_mask[gr_out][chn] =
+                psv->short_mask_final_mask_save[chn];
+            psv->short_mask_pos[gr_out][chn] =
+                psv->short_mask_pos_save[chn];
+            psv->short_mask_score_rel_save[chn] = trans.score_rel[chn];
+            psv->short_mask_final_mask_save[chn] =
+                (unsigned char) trans.final_mask[chn];
+            psv->short_mask_pos_save[chn] = trans.pos[chn];
+        }
+    }
+
     if (plt != 0) {
         plt->transient[gr_out] = plt->transient_save;
         plt->transient_save = trans;
@@ -1958,6 +1993,19 @@ psymodel_init(lame_global_flags const *gfp)
 
     gd->force_short_block_calc = gfp->experimentalZ;
     gd->experimental_transient_bias = 0;
+    gd->experimental_short_mask_relax = 1; /* TEMP: enable for testing */
+    gd->experimental_short_transient_redistribute =
+        gfp->experimental_short_transient_redistribute;
+
+    memset(psv->short_mask_score_rel_save, 0,
+           sizeof(psv->short_mask_score_rel_save));
+    memset(psv->short_mask_final_mask_save, 0,
+           sizeof(psv->short_mask_final_mask_save));
+    memset(psv->short_mask_pos_save, 0, sizeof(psv->short_mask_pos_save));
+    memset(psv->short_mask_score_rel, 0, sizeof(psv->short_mask_score_rel));
+    memset(psv->short_mask_final_mask, 0,
+           sizeof(psv->short_mask_final_mask));
+    memset(psv->short_mask_pos, 0, sizeof(psv->short_mask_pos));
 
     psv->blocktype_old[0] = psv->blocktype_old[1] = NORM_TYPE; /* the vbr header is long blocks */
 

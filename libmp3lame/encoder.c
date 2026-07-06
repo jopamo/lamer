@@ -605,6 +605,98 @@ lame_encode_mp3_frame(       /* Output */
         gfc->sv_qnt.masking_lower = 1.0;
 
         set_frame_pinfo(gfc, masking);
+
+        /* short-block allocation diagnostics */
+        {
+            int const n_chn_psy_alloc = (cfg->mode == JOINT_STEREO) ? 4 : cfg->channels_out;
+            int mean_bits_granule = gfc->pinfo->mean_bits * cfg->channels_out;
+            int gr_a, psy_ch_a;
+            for (gr_a = 0; gr_a < cfg->mode_gr; ++gr_a) {
+                transient_info_t const *const trans_a = &gfc->pinfo->transient[gr_a];
+                for (psy_ch_a = 0; psy_ch_a < n_chn_psy_alloc; ++psy_ch_a) {
+                    int const out_ch_a = psy_ch_a & 0x01;
+                    gr_info const *const cod_info_a = &gfc->l3_side.tt[gr_a][out_ch_a];
+                    if (cod_info_a->block_type == SHORT_TYPE
+                        && trans_a->score_rel[psy_ch_a] >= 1.0
+                        && trans_a->final_mask[psy_ch_a] != 0) {
+                        FLOAT pe_val = gfc->pinfo->pe[gr_a][out_ch_a];
+                        int add_bits_ch = (int)(gfc->pinfo->mean_bits * pe_val / 700.0 - gfc->pinfo->mean_bits);
+                        if (add_bits_ch > mean_bits_granule * 3 / 4)
+                            add_bits_ch = mean_bits_granule * 3 / 4;
+                        if (add_bits_ch < 0)
+                            add_bits_ch = 0;
+                        fprintf(stderr,
+                                "short_alloc: frame=%d gr=%d ch=%d psy_ch=%d "
+                                "pe=%.0f targ_bits=%d add_bits=%d mean_bits=%d "
+                                "resv_size=%d resv_max=%d "
+                                "main_bits=%d sf_bits=%d big_values=%d "
+                                "gain=%d sub0=%d sub1=%d sub2=%d scalefac=%d "
+                                "over=%d tot_noise=%.2f max_noise=%.2f over_noise=%.2f over_ssd=%d "
+                                "br_idx=%d mode_ext=%d\n",
+                                gfc->ov_enc.frame_number, gr_a, out_ch_a, psy_ch_a,
+                                (double) pe_val,
+                                gfc->pinfo->mean_bits + add_bits_ch, add_bits_ch,
+                                gfc->pinfo->mean_bits,
+                                gfc->pinfo->resvsize, gfc->sv_enc.ResvMax,
+                                (int) cod_info_a->part2_3_length, (int) cod_info_a->part2_length,
+                                (int) cod_info_a->big_values,
+                                (int) cod_info_a->global_gain,
+                                (int) cod_info_a->subblock_gain[0],
+                                (int) cod_info_a->subblock_gain[1],
+                                (int) cod_info_a->subblock_gain[2],
+                                (int) cod_info_a->scalefac_scale,
+                                gfc->pinfo->over[gr_a][out_ch_a],
+                                (double) gfc->pinfo->tot_noise[gr_a][out_ch_a],
+                                (double) gfc->pinfo->max_noise[gr_a][out_ch_a],
+                                (double) gfc->pinfo->over_noise[gr_a][out_ch_a],
+                                gfc->pinfo->over_SSD[gr_a][out_ch_a],
+                                gfc->ov_enc.bitrate_index, gfc->ov_enc.mode_ext);
+                    }
+                }
+            }
+        }
+        /* short-block frame classifier */
+        {
+            int const n_chn_psy_alloc = (cfg->mode == JOINT_STEREO) ? 4 : cfg->channels_out;
+            int gr_c, psy_ch_c;
+            for (gr_c = 0; gr_c < cfg->mode_gr; ++gr_c) {
+                transient_info_t const *const trans_c = &gfc->pinfo->transient[gr_c];
+                for (psy_ch_c = 0; psy_ch_c < n_chn_psy_alloc; ++psy_ch_c) {
+                    int const out_ch_c = psy_ch_c & 0x01;
+                    gr_info const *const cod_info_c = &gfc->l3_side.tt[gr_c][out_ch_c];
+                    if (cod_info_c->block_type == SHORT_TYPE
+                        && trans_c->final_mask[psy_ch_c] != 0
+                        && trans_c->score_rel[psy_ch_c] > 0.5f) {
+                        FLOAT score_c = trans_c->score_rel[psy_ch_c];
+                        int    part2_3_c = (int) cod_info_c->part2_3_length;
+                        FLOAT max_noise_c = gfc->pinfo->max_noise[gr_c][out_ch_c];
+                        int    over_c = gfc->pinfo->over[gr_c][out_ch_c];
+                        int    strong_c = (score_c >= 3.0f);
+                        int    maxbits_c = (part2_3_c >= MAX_BITS_PER_CHANNEL - 512);
+                        int    high_noise_c = (over_c > 2 && max_noise_c > 2.0f);
+                        int    clean_c = (max_noise_c <= 0 && over_c == 0);
+                        const char *class_c;
+                        if (strong_c && maxbits_c && high_noise_c)
+                            class_c = "StrongShort+MaxBits+HighNoise";
+                        else if (strong_c && maxbits_c && clean_c)
+                            class_c = "StrongShort+MaxBits+Clean";
+                        else if (strong_c && !maxbits_c && high_noise_c)
+                            class_c = "StrongShort+NotMaxBits+HighNoise";
+                        else if (!strong_c && high_noise_c)
+                            class_c = "WeakShort+HighNoise";
+                        else
+                            class_c = "Other";
+
+                        fprintf(stderr,
+                                "short_class: frame=%d gr=%d ch=%d psy_ch=%d class=%s "
+                                "score_rel=%.1f part2_3=%d max_noise=%.1f over=%d\n",
+                                gfc->ov_enc.frame_number, gr_c, out_ch_c, psy_ch_c,
+                                class_c, (double) score_c, part2_3_c,
+                                (double) max_noise_c, over_c);
+                    }
+                }
+            }
+        }
     }
 
     ++gfc->ov_enc.frame_number;

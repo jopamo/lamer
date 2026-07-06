@@ -26,6 +26,7 @@
 #  include <config.h>
 #endif
 
+#include <stdio.h>
 
 #include "lame.h"
 #include "machine.h"
@@ -52,6 +53,184 @@ struct algo_s {
     int     mingain_l;
     int     mingain_s[3];
 };
+
+#ifndef SHORT_MASK_RELAX_FACTOR
+#define SHORT_MASK_RELAX_FACTOR 1.5f
+#endif
+#ifndef SHORT_MASK_RELAX_DB
+#define SHORT_MASK_RELAX_DB 1.7609126f
+#endif
+#ifndef SHORT_MASK_RELAX_BIT_SLOP
+#define SHORT_MASK_RELAX_BIT_SLOP 8
+#endif
+#ifndef SHORT_REDIST_PART23_FLOOR
+#define SHORT_REDIST_PART23_FLOOR 3500
+#endif
+#ifndef SHORT_REDIST_SCORE_FLOOR
+#define SHORT_REDIST_SCORE_FLOOR 2.0f
+#endif
+#ifndef SHORT_REDIST_ATTACK_MAX_NOISE_FLOOR
+#define SHORT_REDIST_ATTACK_MAX_NOISE_FLOOR 1.25f
+#endif
+#ifndef SHORT_REDIST_ATTACK_TIGHTEN_DB
+#define SHORT_REDIST_ATTACK_TIGHTEN_DB (-2.0f)
+#endif
+#ifndef SHORT_REDIST_ATTACK_TIGHTEN_FACTOR
+#define SHORT_REDIST_ATTACK_TIGHTEN_FACTOR 0.63095734448f
+#endif
+#ifndef SHORT_REDIST_NONATTACK_RELAX_DB
+#define SHORT_REDIST_NONATTACK_RELAX_DB 3.0f
+#endif
+#ifndef SHORT_REDIST_NONATTACK_RELAX_FACTOR
+#define SHORT_REDIST_NONATTACK_RELAX_FACTOR 1.99526231497f
+#endif
+#ifndef SHORT_REDIST_HIGH_RELAX_DB
+#define SHORT_REDIST_HIGH_RELAX_DB 4.5f
+#endif
+#ifndef SHORT_REDIST_HIGH_RELAX_FACTOR
+#define SHORT_REDIST_HIGH_RELAX_FACTOR 2.81838293126f
+#endif
+#ifndef SHORT_REDIST_CATASTROPHE_DB
+#define SHORT_REDIST_CATASTROPHE_DB 6.0f
+#endif
+#ifndef SHORT_REDIST_OVERCOUNT_EXPLODE
+#define SHORT_REDIST_OVERCOUNT_EXPLODE 8
+#endif
+
+typedef struct {
+    FLOAT   max_noise;
+    FLOAT   over_noise;
+    int     over_count;
+} short_window_noise_t;
+
+static int
+short_mask_relax_psy_ch(lame_internal_flags const *gfc, int ch)
+{
+    if (gfc->cfg.mode == JOINT_STEREO && gfc->ov_enc.mode_ext == MPG_MD_MS_LR) {
+        return ch + 2;
+    }
+    return ch;
+}
+
+static char const *
+short_mask_relax_source_name(int psy_ch)
+{
+    return psy_ch < 2 ? "LR" : "MS";
+}
+
+static int
+short_transient_mask_attack_win(int final_mask)
+{
+    if (final_mask & 0x01) {
+        return 0;
+    }
+    if (final_mask & 0x02) {
+        return 1;
+    }
+    if (final_mask & 0x0c) {
+        return 2;
+    }
+    return 0;
+}
+
+static int
+short_transient_attack_win(int final_mask, int pos)
+{
+    if (0 <= pos) {
+        int win = pos / 3;
+        if (win < 0) {
+            win = 0;
+        }
+        if (win > 2) {
+            win = 2;
+        }
+        if (final_mask != 0) {
+            if (win == 0 && (final_mask & 0x01)) {
+                return 0;
+            }
+            if (win == 1 && (final_mask & 0x02)) {
+                return 1;
+            }
+            if (win == 2 && (final_mask & 0x0c)) {
+                return 2;
+            }
+        }
+    }
+    return short_transient_mask_attack_win(final_mask);
+}
+
+static void
+short_transient_window_noise(gr_info const *cod_info, FLOAT const *distort,
+                             int attack_win, short_window_noise_t *res)
+{
+    int sfb;
+
+    res->max_noise = -20.0f;
+    res->over_noise = 0.0f;
+    res->over_count = 0;
+
+    for (sfb = cod_info->sfb_lmax; sfb < cod_info->psymax; ++sfb) {
+        int const short_band =
+            cod_info->sfb_smin + (sfb - cod_info->sfb_lmax) / 3;
+
+        if (cod_info->window[sfb] != attack_win) {
+            continue;
+        }
+        if (short_band < 3 || short_band > 10) {
+            continue;
+        }
+
+        {
+            FLOAT const noise = FAST_LOG10(Max(distort[sfb], 1E-20f));
+            if (noise > 0.0f) {
+                res->over_noise += noise;
+                res->over_count++;
+            }
+            res->max_noise = Max(res->max_noise, noise);
+        }
+    }
+}
+
+static void
+short_transient_build_redistributed_xmin(FLOAT *redis_xmin,
+                                         FLOAT const *orig_xmin,
+                                         gr_info const *cod_info,
+                                         int attack_win,
+                                         int *tightened_bands,
+                                         int *relaxed_bands)
+{
+    int sfb;
+
+    memcpy(redis_xmin, orig_xmin, sizeof(FLOAT) * SFBMAX);
+    *tightened_bands = 0;
+    *relaxed_bands = 0;
+
+    for (sfb = cod_info->sfb_lmax; sfb < cod_info->psymax; ++sfb) {
+        int const short_band =
+            cod_info->sfb_smin + (sfb - cod_info->sfb_lmax) / 3;
+
+        if (short_band < 3) {
+            continue;
+        }
+
+        if (cod_info->window[sfb] == attack_win && short_band <= 10) {
+            redis_xmin[sfb] *= SHORT_REDIST_ATTACK_TIGHTEN_FACTOR;
+            (*tightened_bands)++;
+            continue;
+        }
+
+        if (short_band >= 10) {
+            redis_xmin[sfb] *= SHORT_REDIST_HIGH_RELAX_FACTOR;
+            (*relaxed_bands)++;
+            continue;
+        }
+
+        if (short_band <= 12) {
+            redis_xmin[sfb] *= SHORT_REDIST_NONATTACK_RELAX_FACTOR;
+            (*relaxed_bands)++;
+        }
+    }
+}
 /*********************************************************************
  * Direct float-to-int conversion is the only quantization path now.
  *********************************************************************/
@@ -1476,6 +1655,421 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
             use_nbits_gr[gr] += use_nbits_ch[gr][ch];
         }               /* for ch */
         use_nbits_fr += use_nbits_gr[gr];
+    }
+
+    /* experimental: aggressive short-block transient redistribution */
+    if (gfc->cd_psy->experimental_short_transient_redistribute) {
+        int gr2, ch2;
+        for (gr2 = 0; gr2 < ngr; ++gr2) {
+            for (ch2 = 0; ch2 < nch; ++ch2) {
+                algo_t *that = &that_[gr2][ch2];
+                gr_info *cod_info = that->cod_info;
+                PsyStateVar_t const *psv = &gfc->sv_psy;
+                int const psy_ch = short_mask_relax_psy_ch(gfc, ch2);
+                FLOAT const score_rel = psv->short_mask_score_rel[gr2][psy_ch];
+                int const final_mask = psv->short_mask_final_mask[gr2][psy_ch];
+                int const pos = psv->short_mask_pos[gr2][psy_ch];
+                int const old_bits = cod_info->part2_3_length;
+                int const attack_win =
+                    short_transient_attack_win(final_mask, pos);
+                FLOAT old_distort[SFBMAX];
+                short_window_noise_t old_attack_noise;
+                calc_noise_result noise_orig;
+                int candidate = 1;
+                char const *candidate_reason = "eligible";
+
+                if (cod_info->block_type != SHORT_TYPE) {
+                    continue;
+                }
+
+                calc_noise(cod_info, l3_xmin[gr2][ch2], old_distort, &noise_orig, 0);
+                short_transient_window_noise(cod_info, old_distort,
+                                             attack_win, &old_attack_noise);
+
+                if (final_mask == 0) {
+                    candidate = 0;
+                    candidate_reason = "no_final_mask";
+                }
+                else if (score_rel < SHORT_REDIST_SCORE_FLOOR) {
+                    candidate = 0;
+                    candidate_reason = "weak_short";
+                }
+                else if (old_bits < SHORT_REDIST_PART23_FLOOR) {
+                    candidate = 0;
+                    candidate_reason = "low_part23";
+                }
+                else if (old_attack_noise.max_noise <
+                         SHORT_REDIST_ATTACK_MAX_NOISE_FLOOR) {
+                    candidate = 0;
+                    candidate_reason = "low_attack_noise";
+                }
+
+                if (cfg->analysis) {
+                    fprintf(stderr,
+                            "short_target_redist_candidate=%d frame=%d gr=%d ch=%d psy_ch=%d source=%s "
+                            "short_target_redist_reject_reason=%s attack_win=%d score_rel=%.2f final_mask=0x%02x "
+                            "old_bits=%d old_attack_max_noise=%.2f old_attack_over_noise=%.2f "
+                            "old_attack_over_count=%d old_global_max_noise=%.2f old_over_count=%d\n",
+                            candidate, gfc->ov_enc.frame_number, gr2, ch2, psy_ch,
+                            short_mask_relax_source_name(psy_ch), candidate_reason,
+                            attack_win, (double) score_rel, final_mask,
+                            old_bits, (double) old_attack_noise.max_noise,
+                            (double) old_attack_noise.over_noise,
+                            old_attack_noise.over_count,
+                            (double) noise_orig.max_noise,
+                            noise_orig.over_count);
+                }
+
+                if (!candidate) {
+                    continue;
+                }
+
+                {
+                    FLOAT redis_xmin[SFBMAX];
+                    FLOAT new_distort[SFBMAX];
+                    FLOAT restore_distort[SFBMAX];
+                    gr_info saved_gi = *cod_info;
+                    int saved_sfwork[SFBMAX];
+                    int saved_vbrsfmin[SFBMAX];
+                    int saved_scfsi[2][4];
+                    int tightened_bands;
+                    int relaxed_bands;
+                    int new_bits;
+                    int old_nbits = use_nbits_ch[gr2][ch2];
+                    int new_nbits = old_nbits;
+                    int accept = 0;
+                    int rollback_ok = 1;
+                    char const *reject_reason = "no_attack_improvement";
+                    calc_noise_result noise_retry_orig;
+                    calc_noise_result noise_restore_orig;
+                    short_window_noise_t new_attack_noise;
+
+                    memcpy(saved_sfwork, sfwork_[gr2][ch2], sizeof(saved_sfwork));
+                    memcpy(saved_vbrsfmin, vbrsfmin_[gr2][ch2],
+                           sizeof(saved_vbrsfmin));
+                    memcpy(saved_scfsi, gfc->l3_side.scfsi,
+                           sizeof(saved_scfsi));
+
+                    short_transient_build_redistributed_xmin(redis_xmin,
+                                                             l3_xmin[gr2][ch2],
+                                                             cod_info,
+                                                             attack_win,
+                                                             &tightened_bands,
+                                                             &relaxed_bands);
+
+                    {
+                        int vbrmax;
+                        int *sfwork = sfwork_[gr2][ch2];
+                        int *vbrsfmin2 = vbrsfmin_[gr2][ch2];
+
+                        vbrmax = block_sf(that, redis_xmin, sfwork, vbrsfmin2);
+                        that->alloc(that, sfwork, vbrsfmin2, vbrmax);
+                        bitcount(that);
+                        cutDistribution(sfwork, sfwork,
+                                        that->cod_info->global_gain);
+                        outOfBitsStrategy(that, sfwork, vbrsfmin2,
+                                          max_nbits_ch[gr2][ch2]);
+                        memset(&cod_info->l3_enc[0], 0, sizeof(cod_info->l3_enc));
+                        (void) quantizeAndCountBits(that);
+                    }
+
+                    calc_noise(cod_info, l3_xmin[gr2][ch2], new_distort,
+                               &noise_retry_orig, 0);
+                    short_transient_window_noise(cod_info, new_distort,
+                                                 attack_win, &new_attack_noise);
+
+                    new_bits = cod_info->part2_3_length;
+
+                    if (new_bits > MAX_BITS_PER_CHANNEL) {
+                        reject_reason = "bit_limit";
+                    }
+                    else if (!(new_attack_noise.over_noise <
+                               old_attack_noise.over_noise)) {
+                        reject_reason = "attack_over_noise";
+                    }
+                    else if (new_attack_noise.max_noise >
+                             old_attack_noise.max_noise + 0.25f) {
+                        reject_reason = "attack_max_noise";
+                    }
+                    else if (noise_retry_orig.max_noise >
+                             noise_orig.max_noise + SHORT_REDIST_CATASTROPHE_DB) {
+                        reject_reason = "catastrophic_global_noise";
+                    }
+                    else if (noise_retry_orig.over_count >
+                             noise_orig.over_count + SHORT_REDIST_OVERCOUNT_EXPLODE) {
+                        reject_reason = "overcount_exploded";
+                    }
+                    else {
+                        new_nbits = reduce_bit_usage(gfc, gr2, ch2);
+                        if (new_nbits > max_nbits_ch[gr2][ch2]) {
+                            reject_reason = "channel_budget";
+                        }
+                        else if (use_nbits_fr + (new_nbits - old_nbits) >
+                                 max_nbits_fr) {
+                            reject_reason = "frame_budget";
+                        }
+                        else {
+                            accept = 1;
+                            reject_reason = "accepted";
+                        }
+                    }
+
+                    if (accept) {
+                        use_nbits_ch[gr2][ch2] = new_nbits;
+                        use_nbits_gr[gr2] += (new_nbits - old_nbits);
+                        use_nbits_fr += (new_nbits - old_nbits);
+                    }
+                    else {
+                        *cod_info = saved_gi;
+                        memcpy(sfwork_[gr2][ch2], saved_sfwork,
+                               sizeof(saved_sfwork));
+                        memcpy(vbrsfmin_[gr2][ch2], saved_vbrsfmin,
+                               sizeof(saved_vbrsfmin));
+                        memcpy(gfc->l3_side.scfsi, saved_scfsi,
+                               sizeof(saved_scfsi));
+                        calc_noise(cod_info, l3_xmin[gr2][ch2], restore_distort,
+                                   &noise_restore_orig, 0);
+                        rollback_ok =
+                            cod_info->part2_3_length == old_bits
+                            && noise_restore_orig.over_count == noise_orig.over_count
+                            && fabsf(noise_restore_orig.max_noise - noise_orig.max_noise) < 1e-6f
+                            && fabsf(noise_restore_orig.over_noise - noise_orig.over_noise) < 1e-6f
+                            && memcmp(gfc->l3_side.scfsi, saved_scfsi,
+                                      sizeof(saved_scfsi)) == 0;
+                    }
+
+                    if (cfg->analysis) {
+                        fprintf(stderr,
+                                "short_target_redist_retry=1 short_target_redist_accept=%d frame=%d gr=%d ch=%d psy_ch=%d source=%s "
+                                "attack_win=%d old_bits=%d new_bits=%d "
+                                "old_attack_max_noise=%.2f new_attack_max_noise=%.2f "
+                                "old_attack_over_noise=%.2f new_attack_over_noise=%.2f "
+                                "old_attack_over_count=%d new_attack_over_count=%d "
+                                "old_global_max_noise=%.2f new_global_max_noise=%.2f "
+                                "old_over_count=%d new_over_count=%d "
+                                "tightened_bands=%d relaxed_bands=%d "
+                                "short_target_redist_reject_reason=%s rollback_ok=%d\n",
+                                accept, gfc->ov_enc.frame_number, gr2, ch2, psy_ch,
+                                short_mask_relax_source_name(psy_ch), attack_win,
+                                old_bits, new_bits,
+                                (double) old_attack_noise.max_noise,
+                                (double) new_attack_noise.max_noise,
+                                (double) old_attack_noise.over_noise,
+                                (double) new_attack_noise.over_noise,
+                                old_attack_noise.over_count,
+                                new_attack_noise.over_count,
+                                (double) noise_orig.max_noise,
+                                (double) noise_retry_orig.max_noise,
+                                noise_orig.over_count,
+                                noise_retry_orig.over_count,
+                                tightened_bands, relaxed_bands,
+                                reject_reason, rollback_ok);
+                    }
+                }
+            }
+        }
+    }
+
+    /* experimental: impossible short-block threshold guard (post-second-pass) */
+    if (gfc->cd_psy->experimental_short_mask_relax
+        && !gfc->cd_psy->experimental_short_transient_redistribute) {
+        int gr2, ch2;
+        for (gr2 = 0; gr2 < ngr; ++gr2) {
+            for (ch2 = 0; ch2 < nch; ++ch2) {
+                algo_t *that = &that_[gr2][ch2];
+                gr_info *cod_info = that->cod_info;
+                PsyStateVar_t const *psv = &gfc->sv_psy;
+                int const psy_ch = short_mask_relax_psy_ch(gfc, ch2);
+                FLOAT const score_rel = psv->short_mask_score_rel[gr2][psy_ch];
+                int const final_mask = psv->short_mask_final_mask[gr2][psy_ch];
+                int const old_bits = cod_info->part2_3_length;
+                FLOAT old_distort[SFBMAX];
+                calc_noise_result noise_orig;
+                int strong_short;
+                int near_maxbits;
+                int high_noise;
+                int relaxed_bands;
+                int candidate;
+                char const *candidate_reason;
+
+                if (cod_info->block_type != SHORT_TYPE) {
+                    continue;
+                }
+
+                calc_noise(cod_info, l3_xmin[gr2][ch2], old_distort, &noise_orig, 0);
+
+                strong_short = (score_rel >= 3.0f);
+                near_maxbits = (old_bits >= MAX_BITS_PER_CHANNEL - SHORT_MASK_RELAX_BIT_SLOP);
+                high_noise = (noise_orig.over_count > 2 && noise_orig.max_noise > 2.0f);
+                relaxed_bands = 0;
+                {
+                    int sfb;
+                    for (sfb = 0; sfb < cod_info->psymax; ++sfb) {
+                        if (old_distort[sfb] > 1.0f) {
+                            ++relaxed_bands;
+                        }
+                    }
+                }
+
+                candidate = 1;
+                candidate_reason = "eligible";
+                if (final_mask == 0) {
+                    candidate = 0;
+                    candidate_reason = "no_final_mask";
+                }
+                else if (!strong_short) {
+                    candidate = 0;
+                    candidate_reason = "weak_short";
+                }
+                else if (!near_maxbits) {
+                    candidate = 0;
+                    candidate_reason = "not_near_maxbits";
+                }
+                else if (!high_noise) {
+                    candidate = 0;
+                    candidate_reason = "not_high_noise";
+                }
+                else if (relaxed_bands == 0) {
+                    candidate = 0;
+                    candidate_reason = "no_relaxed_bands";
+                }
+
+                if (cfg->analysis) {
+                    fprintf(stderr,
+                            "short_mask_relax_candidate=%d frame=%d gr=%d ch=%d psy_ch=%d source=%s "
+                            "reject_reason=%s score_rel=%.2f final_mask=0x%02x "
+                            "strong_short=%d near_maxbits=%d high_noise=%d "
+                            "old_bits=%d old_max_noise_orig=%.2f old_over_noise_orig=%.2f "
+                            "old_over_count_orig=%d relax_db=%.2f relaxed_bands=%d\n",
+                            candidate, gfc->ov_enc.frame_number, gr2, ch2, psy_ch,
+                            short_mask_relax_source_name(psy_ch), candidate_reason,
+                            (double) score_rel, final_mask, strong_short,
+                            near_maxbits, high_noise, old_bits,
+                            (double) noise_orig.max_noise,
+                            (double) noise_orig.over_noise,
+                            noise_orig.over_count,
+                            (double) SHORT_MASK_RELAX_DB, relaxed_bands);
+                }
+
+                if (!candidate) {
+                    continue;
+                }
+
+                {
+                    FLOAT relaxed_xmin[SFBMAX];
+                    gr_info saved_gi = *cod_info;
+                    int saved_sfwork[SFBMAX];
+                    int saved_vbrsfmin[SFBMAX];
+                    calc_noise_result noise_retry_relaxed;
+                    calc_noise_result noise_retry_orig;
+                    int new_bits;
+                    int accept;
+                    int rollback_ok = 1;
+                    char const *reject_reason;
+
+                    memcpy(saved_sfwork, sfwork_[gr2][ch2], sizeof(saved_sfwork));
+                    memcpy(saved_vbrsfmin, vbrsfmin_[gr2][ch2],
+                           sizeof(saved_vbrsfmin));
+                    memcpy(relaxed_xmin, l3_xmin[gr2][ch2], sizeof(relaxed_xmin));
+                    {
+                        int sfb;
+                        for (sfb = 0; sfb < cod_info->psymax; ++sfb) {
+                            if (old_distort[sfb] > 1.0f) {
+                                relaxed_xmin[sfb] *= SHORT_MASK_RELAX_FACTOR;
+                            }
+                        }
+                    }
+
+                    {
+                        int vbrmax;
+                        int *sfwork = sfwork_[gr2][ch2];
+                        int *vbrsfmin2 = vbrsfmin_[gr2][ch2];
+
+                        vbrmax = block_sf(that, relaxed_xmin, sfwork, vbrsfmin2);
+                        that->alloc(that, sfwork, vbrsfmin2, vbrmax);
+                        bitcount(that);
+                        memset(&cod_info->l3_enc[0], 0, sizeof(cod_info->l3_enc));
+                        (void) quantizeAndCountBits(that);
+                    }
+
+                    calc_noise(cod_info, relaxed_xmin, old_distort,
+                               &noise_retry_relaxed, 0);
+                    calc_noise(cod_info, l3_xmin[gr2][ch2], old_distort,
+                               &noise_retry_orig, 0);
+
+                    new_bits = cod_info->part2_3_length;
+                    accept = (new_bits <= MAX_BITS_PER_CHANNEL)
+                        && (new_bits <= old_bits)
+                        && (noise_retry_orig.max_noise <= noise_orig.max_noise
+                            || noise_retry_orig.over_noise < noise_orig.over_noise
+                            || noise_retry_orig.over_count < noise_orig.over_count);
+
+                    if (accept) {
+                        int old_nbits = use_nbits_ch[gr2][ch2];
+                        use_nbits_ch[gr2][ch2] = reduce_bit_usage(gfc, gr2, ch2);
+                        use_nbits_gr[gr2] += (use_nbits_ch[gr2][ch2] - old_nbits);
+                        use_nbits_fr += (use_nbits_ch[gr2][ch2] - old_nbits);
+                        reject_reason = "accepted";
+                    }
+                    else {
+                        FLOAT restore_distort[SFBMAX];
+                        calc_noise_result noise_restore_orig;
+
+                        *cod_info = saved_gi;
+                        memcpy(sfwork_[gr2][ch2], saved_sfwork, sizeof(saved_sfwork));
+                        memcpy(vbrsfmin_[gr2][ch2], saved_vbrsfmin,
+                               sizeof(saved_vbrsfmin));
+
+                        calc_noise(cod_info, l3_xmin[gr2][ch2], restore_distort,
+                                   &noise_restore_orig, 0);
+                        rollback_ok =
+                            cod_info->part2_3_length == old_bits
+                            && noise_restore_orig.over_count == noise_orig.over_count
+                            && fabsf(noise_restore_orig.max_noise - noise_orig.max_noise) < 1e-6f
+                            && fabsf(noise_restore_orig.over_noise - noise_orig.over_noise) < 1e-6f;
+
+                        if (new_bits > MAX_BITS_PER_CHANNEL) {
+                            reject_reason = "bit_limit";
+                        }
+                        else if (new_bits > old_bits) {
+                            reject_reason = "more_bits";
+                        }
+                        else {
+                            reject_reason = "no_orig_improvement";
+                        }
+                    }
+
+                    if (cfg->analysis) {
+                        fprintf(stderr,
+                                "short_mask_relax_retry=1 short_mask_relax_accept=%d accept=%d "
+                                "frame=%d gr=%d ch=%d psy_ch=%d source=%s "
+                                "reject_reason=%s rollback_ok=%d "
+                                "score_rel=%.2f final_mask=0x%02x "
+                                "old_bits=%d new_bits=%d "
+                                "old_max_noise_orig=%.2f new_max_noise_orig=%.2f "
+                                "old_over_noise_orig=%.2f new_over_noise_orig=%.2f "
+                                "old_over_count_orig=%d new_over_count_orig=%d "
+                                "new_max_noise_relaxed=%.2f new_over_noise_relaxed=%.2f "
+                                "new_over_count_relaxed=%d relax_db=%.2f relaxed_bands=%d\n",
+                                accept, accept, gfc->ov_enc.frame_number, gr2, ch2,
+                                psy_ch, short_mask_relax_source_name(psy_ch),
+                                reject_reason, rollback_ok,
+                                (double) score_rel, final_mask,
+                                old_bits, new_bits,
+                                (double) noise_orig.max_noise,
+                                (double) noise_retry_orig.max_noise,
+                                (double) noise_orig.over_noise,
+                                (double) noise_retry_orig.over_noise,
+                                noise_orig.over_count,
+                                noise_retry_orig.over_count,
+                                (double) noise_retry_relaxed.max_noise,
+                                (double) noise_retry_relaxed.over_noise,
+                                noise_retry_relaxed.over_count,
+                                (double) SHORT_MASK_RELAX_DB, relaxed_bands);
+                    }
+                }
+            }
+        }
     }
 
     /* check bit constrains, but it should always be ok, iff there are no bugs ;-)

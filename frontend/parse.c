@@ -873,6 +873,9 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                 T_ELIF("analysis")
                     (void) lame_set_analysis(gfp, 1);
 
+                T_ELIF("experimental-short-transient-redistribute")
+                    (void) lame_set_experimental_short_transient_redistribute(gfp, 1);
+
                 T_ELIF("flush")
                     global_writer.flush_write = 1;
 

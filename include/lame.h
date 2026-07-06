@@ -359,6 +359,10 @@ int CDECL lame_get_experimentalY(const lame_global_flags *);
 int CDECL lame_set_experimentalZ(lame_global_flags *, int);
 int CDECL lame_get_experimentalZ(const lame_global_flags *);
 
+/* aggressive short-block transient redistribution experiment */
+int CDECL lame_set_experimental_short_transient_redistribute(lame_global_flags *, int);
+int CDECL lame_get_experimental_short_transient_redistribute(const lame_global_flags *);
+
 /* Naoki's psycho acoustic model.  default=0 */
 int CDECL lame_set_exp_nspsytune(lame_global_flags *, int);
 int CDECL lame_get_exp_nspsytune(const lame_global_flags *);
