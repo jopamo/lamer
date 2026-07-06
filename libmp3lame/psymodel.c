@@ -762,6 +762,85 @@ vbrpsy_compute_loudness_approximation_l(lame_internal_flags * gfc, int gr_out, i
 }
 
 
+static unsigned char
+attack_mask4(int const attacks[4])
+{
+    unsigned char mask = 0;
+    int i;
+
+    for (i = 0; i < 4; ++i) {
+        if (attacks[i]) {
+            mask |= (unsigned char) (1u << i);
+        }
+    }
+
+    return mask;
+}
+
+static unsigned char
+attack_count4(int const attacks[4])
+{
+    unsigned char count = 0;
+    int i;
+
+    for (i = 0; i < 4; ++i) {
+        if (attacks[i]) {
+            ++count;
+        }
+    }
+
+    return count;
+}
+
+static void
+save_uselong_policy_state(transient_info_t *trans, int const *uselongblock, int nch, int before_policy)
+{
+    int chn;
+
+    if (trans == 0) {
+        return;
+    }
+    for (chn = 0; chn < nch; ++chn) {
+        unsigned char const value = uselongblock[chn] ? 1u : 0u;
+        if (before_policy) {
+            trans->uselong_before_policy[chn] = value;
+        }
+        else {
+            trans->uselong_after_policy[chn] = value;
+        }
+    }
+}
+
+static void
+mark_uselong_policy_adjustments(SessionConfig_t const *cfg, transient_info_t *trans, int const *uselongblock, int nch)
+{
+    int chn;
+
+    if (trans == 0) {
+        return;
+    }
+    save_uselong_policy_state(trans, uselongblock, nch, 0);
+    for (chn = 0; chn < nch; ++chn) {
+        unsigned char mask = 0;
+        if (trans->uselong_before_policy[chn] != trans->uselong_after_policy[chn]) {
+            switch (cfg->short_blocks) {
+            case short_block_coupled:
+                mask |= 0x01u;
+                break;
+            case short_block_forced:
+                mask |= 0x02u;
+                break;
+            case short_block_dispensed:
+                mask |= 0x04u;
+                break;
+            default:
+                break;
+            }
+        }
+        trans->policy_mask[chn] = mask;
+    }
+}
+
     /**********************************************************************
     *  Apply HPF of fs/4 to the input signal.
     *  This is used for attack detection / handling.
@@ -770,7 +849,7 @@ static void
 vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer[2], int gr_out,
                         III_psy_ratio masking_ratio[2][2], III_psy_ratio masking_MS_ratio[2][2],
                         FLOAT energy[4], FLOAT sub_short_factor[4][3], int ns_attacks[4][4],
-                        int uselongblock[2])
+                        int uselongblock[2], transient_info_t *trans)
 {
     FLOAT   ns_hpfsmpl[2][576];
     SessionConfig_t const *const cfg = &gfc->cfg;
@@ -896,6 +975,32 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
                 }
             }
         }
+        /* raw attack mask before suppression */
+        if (trans != 0) {
+            trans->raw_mask[chn] = attack_mask4(ns_attacks[chn]);
+        }
+        /* threshold-relative score */
+        if (trans != 0) {
+            FLOAT best = 0;
+            FLOAT best_rel = 0;
+            int best_pos = -1;
+            FLOAT const threshold = gfc->cd_psy->attack_threshold[chn];
+
+            for (i = 0; i < 12; ++i) {
+                FLOAT const score = attack_intensity[i];
+                FLOAT const rel = threshold > 0 ? score / threshold : 0;
+
+                if (rel > best_rel) {
+                    best = score;
+                    best_rel = rel;
+                    best_pos = i;
+                }
+            }
+
+            trans->score[chn] = best;
+            trans->score_rel[chn] = best_rel;
+            trans->pos[chn] = (signed char) best_pos;
+        }
         /* should have energy change between short blocks, in order to avoid periodic signals */
         /* Good samples to show the effect are Trumpet test songs */
         /* GB: tuned (1) to avoid too many short blocks for test sample TRUMPET */
@@ -931,6 +1036,17 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
             if (ns_attacks[chn][3] && ns_attacks[chn][2]) {
                 ns_attacks[chn][3] = 0;
             }
+        }
+
+        /* final and suppressed masks after all suppression logic */
+        if (trans != 0) {
+            unsigned char const final = attack_mask4(ns_attacks[chn]);
+            unsigned char raw = trans->raw_mask[chn];
+
+            trans->final_mask[chn] = final;
+            trans->suppressed_mask[chn] = raw & (unsigned char)~final;
+            trans->count[chn] = attack_count4(ns_attacks[chn]);
+            trans->last_attack[chn] = (signed char) psv->last_attacks[chn];
         }
 
         if (chn < 2) {
@@ -1419,6 +1535,7 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
     /* block type  */
     int     ns_attacks[4][4] = { {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0} };
     int     uselongblock[2] = { 1, 1 };
+    transient_info_t trans;
 
     /* usual variables like loop indices, etc..    */
     int     chn, sb, sblock;
@@ -1427,11 +1544,19 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
     int const n_chn_psy = (cfg->mode == JOINT_STEREO) ? 4 : cfg->channels_out;
 
     memcpy(&last_thm[0], &psv->thm[0], sizeof(last_thm));
+    memset(&trans, 0, sizeof(trans));
 
     vbrpsy_attack_detection(gfc, buffer, gr_out, masking_ratio, masking_MS_ratio, energy,
-                            sub_short_factor, ns_attacks, uselongblock);
+                            sub_short_factor, ns_attacks, uselongblock, &trans);
+    save_uselong_policy_state(&trans, uselongblock, cfg->channels_out, 1);
 
     vbrpsy_compute_block_type(cfg, uselongblock);
+    mark_uselong_policy_adjustments(cfg, &trans, uselongblock, cfg->channels_out);
+
+    if (plt != 0) {
+        plt->transient[gr_out] = plt->transient_save;
+        plt->transient_save = trans;
+    }
 
     /* LONG BLOCK CASE */
     {
@@ -1832,6 +1957,7 @@ psymodel_init(lame_global_flags const *gfp)
     gfc->cd_psy = gd;
 
     gd->force_short_block_calc = gfp->experimentalZ;
+    gd->experimental_transient_bias = 0;
 
     psv->blocktype_old[0] = psv->blocktype_old[1] = NORM_TYPE; /* the vbr header is long blocks */
 

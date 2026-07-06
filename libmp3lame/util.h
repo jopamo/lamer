@@ -244,6 +244,7 @@ fast_log2(ieee754_float32_t x)
         FLOAT   attack_threshold[4];
         FLOAT   decay;
         int     force_short_block_calc;
+        int     experimental_transient_bias;
     } PsyConst_t;
 
 

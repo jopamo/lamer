@@ -29,6 +29,7 @@
 #include <config.h>
 #endif
 
+#include <stdio.h>
 
 #include "lame.h"
 #include "machine.h"
@@ -134,6 +135,21 @@ adjust_ATH(lame_internal_flags const *const gfc)
         }
         gfc->ATH->adjust_limit = adj_lim_new;
     }
+}
+
+static char const *
+policy_mask_name(unsigned char mask)
+{
+    if (mask & 0x02u) {
+        return "forced";
+    }
+    if (mask & 0x04u) {
+        return "disabled";
+    }
+    if (mask & 0x01u) {
+        return "coupled";
+    }
+    return "none";
 }
 
 /***********************************************************************
@@ -476,6 +492,32 @@ lame_encode_mp3_frame(       /* Output */
                     gfc->pinfo->ers[gr][ch] = gfc->pinfo->ers[gr][ch + 2];
                     memcpy(gfc->pinfo->energy[gr][ch], gfc->pinfo->energy[gr][ch + 2],
                            sizeof(gfc->pinfo->energy[gr][ch]));
+                }
+            }
+            {
+                transient_info_t const *const trans = &gfc->pinfo->transient[gr];
+                int const n_chn_psy = (cfg->mode == JOINT_STEREO) ? 4 : cfg->channels_out;
+                int psy_ch;
+                for (psy_ch = 0; psy_ch < n_chn_psy; ++psy_ch) {
+                    int const out_ch = psy_ch & 0x01;
+                    fprintf(stderr,
+                            "transient_aligned: frame=%d gr=%d psy_ch=%d out_ch=%d source=%s "
+                            "blocktype=%d score_rel=%.2f score=%.0f pos=%d "
+                            "raw_mask=0x%02x final_mask=0x%02x suppressed_mask=0x%02x count=%u "
+                            "last_attack=%d uselong_before_policy=%u uselong_after_policy=%u policy=%s\n",
+                            gfc->ov_enc.frame_number, gr, psy_ch, out_ch,
+                            psy_ch < 2 ? "LR" : "MS",
+                            gfc->pinfo->blocktype[gr][out_ch],
+                            trans->score_rel[psy_ch], trans->score[psy_ch],
+                            (int) trans->pos[psy_ch],
+                            (unsigned) trans->raw_mask[psy_ch],
+                            (unsigned) trans->final_mask[psy_ch],
+                            (unsigned) trans->suppressed_mask[psy_ch],
+                            (unsigned) trans->count[psy_ch],
+                            (int) trans->last_attack[psy_ch],
+                            (unsigned) trans->uselong_before_policy[out_ch],
+                            (unsigned) trans->uselong_after_policy[out_ch],
+                            policy_mask_name(trans->policy_mask[out_ch]));
                 }
             }
         }

@@ -51,6 +51,11 @@ char   *strchr(), *strrchr();
  to the library.
 */
 #include "lame.h"
+#include "machine.h"
+#include "encoder.h"
+#include "lame-analysis.h"
+#include "lame_global_flags.h"
+#include "util.h"
 
 #include "console.h"
 #include "parse.h"
@@ -106,6 +111,37 @@ init_files(lame_global_flags * gf, char const *inPath, char const *outPath)
     }
 
     return outf;
+}
+
+static int
+enable_analysis_trace(lame_t gf)
+{
+    plotting_data *pinfo;
+
+    if (!lame_get_analysis(gf)) {
+        return 0;
+    }
+    if (gf == NULL || gf->internal_flags == NULL) {
+        return -1;
+    }
+    if (gf->internal_flags->pinfo != NULL) {
+        return 0;
+    }
+    pinfo = calloc(1, sizeof(*pinfo));
+    if (pinfo == NULL) {
+        return -1;
+    }
+    gf->internal_flags->pinfo = pinfo;
+    return 0;
+}
+
+static void
+disable_analysis_trace(lame_t gf)
+{
+    if (gf && gf->internal_flags && gf->internal_flags->pinfo) {
+        free(gf->internal_flags->pinfo);
+        gf->internal_flags->pinfo = NULL;
+    }
 }
 
 
@@ -527,6 +563,7 @@ lame_main(lame_t gf, int argc, char **argv)
 
     int     ret;
     int     i;
+    int     analysis_trace_enabled = 0;
     FILE   *outf = NULL;
 
     lame_set_msgf(gf, &frontend_msgf);
@@ -593,6 +630,13 @@ lame_main(lame_t gf, int argc, char **argv)
      */
     lame_set_write_id3tag_automatic(gf, 0);
 
+    if (enable_analysis_trace(gf) != 0) {
+        fclose(outf);
+        close_infile();
+        return -1;
+    }
+    analysis_trace_enabled = lame_get_analysis(gf) && gf->internal_flags && gf->internal_flags->pinfo;
+
     /* Now that all the options are set, lame needs to analyze them and
      * set some more internal options and check for problems
      */
@@ -604,6 +648,9 @@ lame_main(lame_t gf, int argc, char **argv)
         error_printf("fatal error during initialization\n");
         fclose(outf);
         close_infile();
+        if (analysis_trace_enabled) {
+            disable_analysis_trace(gf);
+        }
         return ret;
     }
 
@@ -629,6 +676,9 @@ lame_main(lame_t gf, int argc, char **argv)
                 outf = init_files(gf, nogap_inPath[i], nogap_outPath[i]);
                 if (outf == NULL) {
                     close_infile();
+                    if (analysis_trace_enabled) {
+                        disable_analysis_trace(gf);
+                    }
                     return -1;
                 }
                 /* reinitialize bitstream for next encoding.  this is normally done
@@ -639,6 +689,9 @@ lame_main(lame_t gf, int argc, char **argv)
             lame_set_nogap_currentindex(gf, i);
             ret = lame_encoder(gf, outf, use_flush_nogap, nogap_inPath[i], nogap_outPath[i]);
         }
+    }
+    if (analysis_trace_enabled) {
+        disable_analysis_trace(gf);
     }
     return ret;
 }

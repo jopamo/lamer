@@ -22,6 +22,21 @@
 #ifndef LAME_GTKANAL_H
 #define LAME_GTKANAL_H
 
+/* private transient diagnostics, not in the public ABI */
+typedef struct transient_info_s {
+    double  score[4];
+    double  score_rel[4];
+    unsigned char count[4];
+    signed char pos[4];
+    signed char last_attack[4];
+    unsigned char raw_mask[4];
+    unsigned char final_mask[4];
+    unsigned char suppressed_mask[4];
+    unsigned char uselong_before_policy[2];
+    unsigned char uselong_after_policy[2];
+    unsigned char policy_mask[2];
+} transient_info_t;
+
 
 #define READ_AHEAD 40   /* number of frames to read ahead */
 #define MAXMPGLAG READ_AHEAD /* if the mpg123 lag becomes bigger than this
@@ -53,6 +68,8 @@ struct plotting_data {
     double  en_s[2][4][3 * SBMAX_s];
     double  ers_save[4];     /* psymodel is one ahead */
     double  ers[2][4];
+    transient_info_t transient[2];  /* psymodel is one ahead */
+    transient_info_t transient_save;
 
     double  sfb[2][2][SBMAX_l];
     double  sfb_s[2][2][3 * SBMAX_s];

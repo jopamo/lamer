@@ -870,6 +870,9 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                 T_ELIF("decode")
                     (void) lame_set_decode_only(gfp, 1);
 
+                T_ELIF("analysis")
+                    (void) lame_set_analysis(gfp, 1);
+
                 T_ELIF("flush")
                     global_writer.flush_write = 1;
 
