@@ -1,5 +1,0 @@
-frames=25000 repeats=256 bytes=2322599 hash=c908a3282ae4b410
-frames=25000 repeats=256 bytes=2322599 hash=c908a3282ae4b410
-frames=25000 repeats=256 bytes=2322599 hash=c908a3282ae4b410
-frames=25000 repeats=256 bytes=2322599 hash=c908a3282ae4b410
-frames=25000 repeats=256 bytes=2322599 hash=c908a3282ae4b410

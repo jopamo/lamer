@@ -1,7 +1,0 @@
-
- Performance counter stats for 'profiling/20260705-221348-callgrind-sfbmax-local-vs-system/bench_system testcase.wav 256' (5 runs):
-
-   <not supported>      cpu-cycles                       #      nan GHz  cycles_frequency     
-
-       1.419275216 +- 0.002607637 seconds time elapsed  ( +-  0.18% )
-

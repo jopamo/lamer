@@ -32,6 +32,22 @@ test(
   suite : ['api'],
 )
 
+test_profile_workload_exe = executable(
+  'test_profile_workload',
+  files('test_profile_workload.c'),
+  c_args : ['-DTEST_DATA_DIR="' + data_dir + '"'],
+  include_directories : core_includes,
+  link_with : libmp3lame,
+  dependencies : [libm],
+)
+
+test(
+  'lame-profile-workload',
+  test_profile_workload_exe,
+  workdir : meson.current_build_dir(),
+  suite : ['api'],
+)
+
 # ── Basic smoke tests ────────────────────────────────────────────────────────
 
 test(

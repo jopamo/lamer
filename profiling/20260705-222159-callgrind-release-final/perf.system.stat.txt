@@ -1,7 +1,0 @@
-
- Performance counter stats for 'profiling/20260705-222159-callgrind-release-final/bench_system testcase.wav 256' (5 runs):
-
-   <not supported>      cpu-cycles                       #      nan GHz  cycles_frequency     
-
-       1.391676707 +- 0.004150240 seconds time elapsed  ( +-  0.30% )
-

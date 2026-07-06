@@ -1,1 +1,0 @@
-frames=25000 repeats=64 bytes=580963 hash=a45c8154aab23323
