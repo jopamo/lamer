@@ -237,6 +237,7 @@ hip_t hip_decode_init_gapless(void)
         hip = NULL;
     }
 #else
+    free(hip);
     hip = NULL;
 #endif
     return hip;

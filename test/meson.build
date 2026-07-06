@@ -15,6 +15,23 @@ full_vbr      = join_paths(options_dir, 'VBR.op')
 misc_op       = join_paths(options_dir, 'misc.op')
 nores_op      = join_paths(options_dir, 'nores.op')
 
+# ── C API unit tests (direct library calls) ──────────────────────────────────
+
+test_api_exe = executable(
+  'test_api',
+  files('test_api.c'),
+  include_directories : core_includes,
+  link_with : libmp3lame,
+  dependencies : [libm],
+)
+
+test(
+  'lame-api',
+  test_api_exe,
+  workdir : meson.current_build_dir(),
+  suite : ['api'],
+)
+
 # ── Basic smoke tests ────────────────────────────────────────────────────────
 
 test(
