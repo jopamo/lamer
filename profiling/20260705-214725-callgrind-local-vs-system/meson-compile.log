@@ -1,0 +1,81 @@
+ninja: entering directory '/home/me/projects/lame/build-callgrind-release'
+[1/33] Compiling C object frontend/lame.p/usage.c.o
+[2/33] Compiling C object frontend/lame.p/timestatus.c.o
+[3/33] Compiling C object frontend/lame.p/path.c.o
+[4/33] Compiling C object frontend/lame.p/parse.c.o
+[5/33] Compiling C object frontend/lame.p/main.c.o
+[6/33] Compiling C object frontend/lame.p/lametime.c.o
+[7/33] Compiling C object frontend/lame.p/lame_main.c.o
+[8/33] Compiling C object frontend/lame.p/get_audio.c.o
+[9/33] Compiling C object frontend/lame.p/console.c.o
+[10/33] Compiling C object frontend/lame.p/brhist.c.o
+[11/33] Compiling C object libmp3lame/libmp3lame.so.0.p/version.c.o
+[12/33] Compiling C object libmp3lame/libmp3lame.so.0.p/vbrquantize.c.o
+[13/33] Compiling C object libmp3lame/libmp3lame.so.0.p/util.c.o
+[14/33] Compiling C object libmp3lame/libmp3lame.so.0.p/takehiro.c.o
+[15/33] Compiling C object libmp3lame/libmp3lame.so.0.p/tables.c.o
+[16/33] Compiling C object libmp3lame/libmp3lame.so.0.p/set_get.c.o
+[17/33] Compiling C object libmp3lame/libmp3lame.so.0.p/reservoir.c.o
+[18/33] Compiling C object libmp3lame/libmp3lame.so.0.p/quantize_pvt.c.o
+[19/33] Compiling C object libmp3lame/libmp3lame.so.0.p/quantize.c.o
+[20/33] Compiling C object libmp3lame/libmp3lame.so.0.p/psymodel.c.o
+[21/33] Compiling C object libmp3lame/libmp3lame.so.0.p/presets.c.o
+[22/33] Compiling C object libmp3lame/libmp3lame.so.0.p/newmdct.c.o
+[23/33] Compiling C object libmp3lame/libmp3lame.so.0.p/mpglib_interface.c.o
+[24/33] Compiling C object libmp3lame/libmp3lame.so.0.p/lame.c.o
+[25/33] Compiling C object libmp3lame/libmp3lame.so.0.p/id3tag.c.o
+[26/33] Compiling C object libmp3lame/libmp3lame.so.0.p/gain_analysis.c.o
+[27/33] Compiling C object libmp3lame/libmp3lame.so.0.p/fft.c.o
+[28/33] Compiling C object libmp3lame/libmp3lame.so.0.p/encoder.c.o
+[29/33] Compiling C object libmp3lame/libmp3lame.so.0.p/bitstream.c.o
+[30/33] Compiling C object libmp3lame/libmp3lame.so.0.p/VbrTag.c.o
+In function '[01m[Kparse_args_[m[K',
+    inlined from '[01m[Kparse_args[m[K' at [01m[K../frontend/parse.c:1919:11[m[K:
+[01m[K../frontend/parse.c:813:17:[m[K [01;35m[Kwarning: [m[K'[01m[Kstr_argv[m[K' may be used uninitialized [[01;35m[K-Wmaybe-uninitialized[m[K]
+  813 |     const char *[01;35m[KProgramName[m[K = argv[0];
+      |                 [01;35m[K^~~~~~~~~~~[m[K
+[01m[K../frontend/parse.c:[m[K In function '[01m[Kparse_args[m[K':
+[01m[K../frontend/parse.c:1911:13:[m[K [01;36m[Knote: [m[K'[01m[Kstr_argv[m[K' declared here
+ 1911 |     char   *[01;36m[Kstr_argv[m[K[512], *str;
+      |             [01;36m[K^~~~~~~~[m[K
+In function '[01m[Kvbrpsy_compute_block_type[m[K',
+    inlined from '[01m[KL3psycho_anal_vbr[m[K' at [01m[K../libmp3lame/psymodel.c:1456:5[m[K:
+[01m[K../libmp3lame/psymodel.c:1284:26:[m[K [01;35m[Kwarning: [m[K'[01m[Kuselongblock[m[K' may be used uninitialized [[01;35m[K-Wmaybe-uninitialized[m[K]
+ 1284 |         && !([01;35m[Kuselongblock[0][m[K && uselongblock[1]))
+      |              [01;35m[K~~~~~~~~~~~~^~~[m[K
+[01m[K../libmp3lame/psymodel.c:[m[K In function '[01m[KL3psycho_anal_vbr[m[K':
+[01m[K../libmp3lame/psymodel.c:1443:13:[m[K [01;36m[Knote: [m[K'[01m[Kuselongblock[m[K' declared here
+ 1443 |     int     [01;36m[Kuselongblock[m[K[2];
+      |             [01;36m[K^~~~~~~~~~~~[m[K
+In function '[01m[Kvbrpsy_compute_block_type[m[K',
+    inlined from '[01m[KL3psycho_anal_vbr[m[K' at [01m[K../libmp3lame/psymodel.c:1456:5[m[K:
+[01m[K../libmp3lame/psymodel.c:1284:26:[m[K [01;35m[Kwarning: [m[K'[01m[Kuselongblock[m[K' may be used uninitialized [[01;35m[K-Wmaybe-uninitialized[m[K]
+ 1284 |         && !([01;35m[Kuselongblock[0][m[K && uselongblock[1]))
+      |              [01;35m[K~~~~~~~~~~~~^~~[m[K
+[01m[K../libmp3lame/psymodel.c:[m[K In function '[01m[KL3psycho_anal_vbr[m[K':
+[01m[K../libmp3lame/psymodel.c:1443:13:[m[K [01;36m[Knote: [m[K'[01m[Kuselongblock[m[K' declared here
+ 1443 |     int     [01;36m[Kuselongblock[m[K[2];
+      |             [01;36m[K^~~~~~~~~~~~[m[K
+In function '[01m[Kvbrpsy_compute_block_type[m[K',
+    inlined from '[01m[KL3psycho_anal_vbr[m[K' at [01m[K../libmp3lame/psymodel.c:1456:5[m[K:
+[01m[K../libmp3lame/psymodel.c:1284:45:[m[K [01;35m[Kwarning: [m[K'[01m[Kuselongblock[m[K' may be used uninitialized [[01;35m[K-Wmaybe-uninitialized[m[K]
+ 1284 |         && !(uselongblock[0] && [01;35m[Kuselongblock[1][m[K))
+      |                                 [01;35m[K~~~~~~~~~~~~^~~[m[K
+[01m[K../libmp3lame/psymodel.c:[m[K In function '[01m[KL3psycho_anal_vbr[m[K':
+[01m[K../libmp3lame/psymodel.c:1443:13:[m[K [01;36m[Knote: [m[K'[01m[Kuselongblock[m[K' declared here
+ 1443 |     int     [01;36m[Kuselongblock[m[K[2];
+      |             [01;36m[K^~~~~~~~~~~~[m[K
+In function '[01m[Kvbrpsy_compute_block_type[m[K',
+    inlined from '[01m[KL3psycho_anal_vbr[m[K' at [01m[K../libmp3lame/psymodel.c:1456:5[m[K:
+[01m[K../libmp3lame/psymodel.c:1284:45:[m[K [01;35m[Kwarning: [m[K'[01m[Kuselongblock[m[K' may be used uninitialized [[01;35m[K-Wmaybe-uninitialized[m[K]
+ 1284 |         && !(uselongblock[0] && [01;35m[Kuselongblock[1][m[K))
+      |                                 [01;35m[K~~~~~~~~~~~~^~~[m[K
+[01m[K../libmp3lame/psymodel.c:[m[K In function '[01m[KL3psycho_anal_vbr[m[K':
+[01m[K../libmp3lame/psymodel.c:1443:13:[m[K [01;36m[Knote: [m[K'[01m[Kuselongblock[m[K' declared here
+ 1443 |     int     [01;36m[Kuselongblock[m[K[2];
+      |             [01;36m[K^~~~~~~~~~~~[m[K
+[31/33] Linking target libmp3lame/libmp3lame.so.0
+[32/33] Generating symbol file libmp3lame/libmp3lame.so.0.p/libmp3lame.so.0.symbols
+[33/33] Linking target frontend/lame
+INFO: autodetecting backend as ninja
+INFO: calculating backend command to run: /usr/bin/ninja -C /home/me/projects/lame/build-callgrind-release

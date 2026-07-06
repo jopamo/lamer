@@ -1,0 +1,7 @@
+
+ Performance counter stats for 'profiling/20260705-215626-callgrind-fastlog-local-vs-system/bench_local testcase.wav 256' (5 runs):
+
+   <not supported>      cpu-cycles                       #      nan GHz  cycles_frequency     
+
+       1.359379653 +- 0.002896921 seconds time elapsed  ( +-  0.21% )
+

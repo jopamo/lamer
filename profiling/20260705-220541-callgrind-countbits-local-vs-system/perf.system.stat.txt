@@ -1,0 +1,7 @@
+
+ Performance counter stats for 'profiling/20260705-220541-callgrind-countbits-local-vs-system/bench_system testcase.wav 256' (5 runs):
+
+   <not supported>      cpu-cycles                       #      nan GHz  cycles_frequency     
+
+       1.396177246 +- 0.004296541 seconds time elapsed  ( +-  0.31% )
+

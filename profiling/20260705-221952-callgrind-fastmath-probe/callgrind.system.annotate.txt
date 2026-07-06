@@ -1,0 +1,48 @@
+--------------------------------------------------------------------------------
+Profile data file 'profiling/20260705-221952-callgrind-fastmath-probe/callgrind.system.out' (creator: callgrind-3.28.0.GIT)
+--------------------------------------------------------------------------------
+I1 cache: 
+D1 cache: 
+LL cache: 
+Timerange: Basic block 0 - 532404963
+Trigger: Program termination
+Profiled target:  profiling/20260705-221952-callgrind-fastmath-probe/bench_system testcase.wav 64 (PID 15204, part 1)
+Events recorded:  Ir
+Events shown:     Ir
+Event sort order: Ir
+Thresholds:       99
+Include dirs:     
+User annotated:   
+Auto-annotation:  on
+
+--------------------------------------------------------------------------------
+Ir                     
+--------------------------------------------------------------------------------
+4,276,440,554 (100.0%)  PROGRAM TOTALS
+
+--------------------------------------------------------------------------------
+Ir                    file:function
+--------------------------------------------------------------------------------
+808,789,422 (18.91%)  ???:0x0000000000038c70 [/usr/lib/libmp3lame.so.0.0.0]
+752,685,613 (17.60%)  ???:0x0000000000039ad0 [/usr/lib/libmp3lame.so.0.0.0]
+712,659,357 (16.66%)  ???:0x0000000000038840 [/usr/lib/libmp3lame.so.0.0.0]
+605,267,133 (14.15%)  ???:0x0000000000023f90 [/usr/lib/libmp3lame.so.0.0.0]
+237,637,692 ( 5.56%)  ???:0x0000000000032280 [/usr/lib/libmp3lame.so.0.0.0]
+198,889,461 ( 4.65%)  ???:0x000000000002cf50 [/usr/lib/libmp3lame.so.0.0.0]
+195,267,200 ( 4.57%)  ???:0x000000000000f390 [/usr/lib/libmp3lame.so.0.0.0]
+151,068,887 ( 3.53%)  ???:0x00000000000343d0 [/usr/lib/libmp3lame.so.0.0.0]
+136,707,480 ( 3.20%)  ???:0x000000000001fc30 [/usr/lib/libmp3lame.so.0.0.0]
+ 79,276,103 ( 1.85%)  ???:0x0000000000008a40 [/usr/lib/libmp3lame.so.0.0.0]
+ 64,137,265 ( 1.50%)  ???:0x000000000002af20 [/usr/lib/libmp3lame.so.0.0.0]
+ 58,040,829 ( 1.36%)  ???:0x000000000003ee50 [/usr/lib/libmp3lame.so.0.0.0]
+ 46,825,726 ( 1.09%)  ???:0x0000000000020750 [/usr/lib/libmp3lame.so.0.0.0]
+ 40,218,210 ( 0.94%)  ???:0x000000000003a370 [/usr/lib/libmp3lame.so.0.0.0]
+ 31,845,078 ( 0.74%)  ???:0x0000000000038e80 [/usr/lib/libmp3lame.so.0.0.0]
+ 28,567,256 ( 0.67%)  ???:0x0000000000022c10 [/usr/lib/libmp3lame.so.0.0.0]
+ 24,418,728 ( 0.57%)  ???:0x0000000000033640 [/usr/lib/libmp3lame.so.0.0.0]
+ 22,767,555 ( 0.53%)  ???:0x000000000000bd80 [/usr/lib/libmp3lame.so.0.0.0]
+ 14,183,829 ( 0.33%)  ???:pow [/usr/lib/libm.so.6]
+ 11,709,606 ( 0.27%)  ???:0x00000000000187c0 [/usr/lib/libmp3lame.so.0.0.0]
+ 10,377,058 ( 0.24%)  ???:0x0000000000190c40 [/usr/lib/libc.so.6]
+  7,498,008 ( 0.18%)  ???:powf [/usr/lib/libm.so.6]
+

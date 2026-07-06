@@ -1,0 +1,53 @@
+--------------------------------------------------------------------------------
+Profile data file 'profiling/20260705-221907-callgrind-lto-probe/callgrind.local.out' (creator: callgrind-3.28.0.GIT)
+--------------------------------------------------------------------------------
+I1 cache: 
+D1 cache: 
+LL cache: 
+Timerange: Basic block 0 - 530296147
+Trigger: Program termination
+Profiled target:  profiling/20260705-221907-callgrind-lto-probe/bench_local testcase.wav 64 (PID 14914, part 1)
+Events recorded:  Ir
+Events shown:     Ir
+Event sort order: Ir
+Thresholds:       99
+Include dirs:     
+User annotated:   
+Auto-annotation:  on
+
+--------------------------------------------------------------------------------
+Ir                     
+--------------------------------------------------------------------------------
+4,378,458,933 (100.0%)  PROGRAM TOTALS
+
+--------------------------------------------------------------------------------
+Ir                    file:function
+--------------------------------------------------------------------------------
+693,356,931 (15.84%)  ???:L3psycho_anal_vbr [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+385,475,832 ( 8.80%)  ???:choose_table_nonMMX [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+368,976,572 ( 8.43%)  ???:quantize_lines_xrpow [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+309,682,134 ( 7.07%)  ???:noquant_count_bits [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+291,527,626 ( 6.66%)  ???:quantize_xrpow [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+288,207,593 ( 6.58%)  ???:calc_noise_core_c [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+241,044,360 ( 5.51%)  ???:outer_loop.part.0 [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+232,833,860 ( 5.32%)  ???:fht [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+231,822,177 ( 5.29%)  ???:count_bits [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+220,206,180 ( 5.03%)  ???:count_bit_noESC_from3 [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+218,631,816 ( 4.99%)  ???:window_subband [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+196,791,967 ( 4.49%)  ???:calc_noise [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+151,888,881 ( 3.47%)  ???:count_bit_noESC_from2 [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+ 85,376,499 ( 1.95%)  ???:Huffmancode [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+ 70,864,072 ( 1.62%)  ???:mdct_sub48 [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+ 54,507,345 ( 1.24%)  ???:init_xrpow_core_c [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+ 49,344,762 ( 1.13%)  ???:scale_bitcount [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+ 39,920,800 ( 0.91%)  ???:fft_long [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+ 39,479,496 ( 0.90%)  ???:count_bits.constprop.0 [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+ 38,386,762 ( 0.88%)  ???:calc_xmin [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+ 31,156,516 ( 0.71%)  ???:best_huffman_divide [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+ 28,433,176 ( 0.65%)  ???:convert_partition2scalefac [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+ 24,255,902 ( 0.55%)  ???:writeMainData [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+ 14,183,128 ( 0.32%)  ???:pow [/usr/lib/libm.so.6]
+ 14,110,446 ( 0.32%)  ???:lame_copy_inbuffer [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+ 10,377,670 ( 0.24%)  ???:0x0000000000190c40 [/usr/lib/libc.so.6]
+  7,790,681 ( 0.18%)  ???:vbrpsy_compute_MS_thresholds [/home/me/projects/lame/build-callgrind-lto/libmp3lame/libmp3lame.so.0]
+

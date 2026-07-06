@@ -1,0 +1,25 @@
+#ifndef LAME_CONFIG_H
+#define LAME_CONFIG_H
+
+#mesondefine STDC_HEADERS
+#mesondefine HAVE_ERRNO_H
+#mesondefine HAVE_FCNTL_H
+#mesondefine HAVE_ICONV
+#mesondefine HAVE_INTTYPES_H
+#mesondefine HAVE_LANGINFO_H
+#mesondefine HAVE_LIMITS_H
+#mesondefine HAVE_MEMCPY
+#mesondefine HAVE_STDINT_H
+#mesondefine HAVE_STRCHR
+#mesondefine HAVE_UNISTD_H
+#mesondefine USE_FAST_LOG
+
+#ifndef HAVE_IEEE754_FLOAT32_T
+typedef float ieee754_float32_t;
+#endif
+
+#ifndef HAVE_IEEE754_FLOAT64_T
+typedef double ieee754_float64_t;
+#endif
+
+#endif /* LAME_CONFIG_H */

@@ -1,0 +1,3169 @@
+# callgrind format
+version: 1
+creator: callgrind-3.28.0.GIT
+pid: 7381
+cmd:  profiling/20260705-214725-callgrind-local-vs-system/bench_local testcase.wav 64
+part: 1
+
+
+desc: I1 cache: 
+desc: D1 cache: 
+desc: LL cache: 
+
+desc: Timerange: Basic block 0 - 570579009
+desc: Trigger: Program termination
+
+positions: line
+events: Ir
+summary: 4664262840
+
+
+ob=(2) /usr/lib/libc.so.6
+fl=(2) ???
+fn=(3202) memset
+0 19
+
+fn=(4350) 0x0000000000190240
+0 1424938
+
+fn=(3254) memmove
+0 17
+
+fn=(4404) free
+0 182
+cfn=(4508) 0x00000000000b2290
+calls=12 0 
+0 1207
+0 63
+cfn=(5494) 0x00000000000b01f0
+calls=1 0 
+0 32
+0 2
+cfn=(5494)
+calls=1 0 
+0 32
+0 10
+
+fn=(3924) (below main)
+cfn=(3956) 0x0000000000026370
+calls=1 0 
+0 4664262840
+
+fn=(4116) 0x00000000000b26e0
+0 1538
+cfn=(4650) 0x00000000000b0930
+calls=2 0 
+0 60
+0 220
+cfn=(4736) 0x00000000000b1900
+calls=2 0 
+0 221
+0 94
+cfn=(4172) __default_morecore
+calls=2 0 
+0 38
+0 16
+
+fn=(5500) munmap
+0 10
+
+fn=(4594) calloc
+0 344
+cfn=(4116)
+calls=10 0 
+0 2068
+0 284
+cfn=(4680) 0x0000000000190c40
+calls=8 0 
+0 56090
+0 8
+
+fn=(3210) memcpy
+0 17
+
+fn=(4172)
+0 4
+cfn=(4174) sbrk
+calls=3 0 
+0 30
+0 4
+
+fn=(4736)
+0 32
+cfn=(4740) mmap
+calls=2 0 
+0 44
+0 28
+cfn=(4750) 0x00000000001355d0
+calls=2 0 
+0 59
+0 58
+
+fn=(4650)
+0 141
+
+fn=(4680)
+0 10377670
+
+fn=(4740)
+0 44
+
+fn=(4750)
+0 34
+cob=(1) /usr/lib/ld-linux-x86-64.so.2
+cfi=(1) ???
+cfn=(218) __tunable_get_val
+calls=1 0 
+0 17
+0 1
+0 7
+
+fn=(3246) strlen
+0 11
+
+fn=(4176) brk
+0 8
+
+fn=(5464) 0x0000000000192f80
+0 195
+
+fn=(5494)
+0 54
+cfn=(5500)
+calls=2 0 
+0 10
+
+fn=(4174)
+0 16
+cfn=(4176)
+calls=2 0 
+0 8
+0 6
+
+fn=(4508)
+0 479
+cfn=(4650)
+calls=4 0 
+0 63
+0 190
+cfn=(4650)
+calls=1 0 
+0 18
+0 457
+
+fn=(3956)
+cob=(7) /home/me/projects/lame/profiling/20260705-214725-callgrind-local-vs-system/bench_local
+cfi=(7) ???
+cfn=(3970) main
+calls=1 0 
+0 4664262840
+
+fn=(4068) malloc
+0 32
+cfn=(4116)
+calls=5 0 
+0 119
+0 8
+
+ob=(7)
+fl=(7)
+fn=(3922) (below main)
+cob=(2)
+cfi=(2)
+cfn=(3924)
+calls=1 0 
+0 4664262840
+
+fn=(3970)
+cfn=(4574) run_encode
+calls=1 0 
+0 4664262840
+
+fn=(4574)
+0 13
+cob=(1)
+cfi=(1)
+cfn=(3978) 0x0000000000016960
+calls=1 0 
+0 36772
+0 5
+0 6
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 1385
+0 5
+0 6
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 701
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 653
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 680
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 641
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 697
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 754
+0 5
+0 2
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 4100894
+0 5
+0 4
+cob=(2)
+cfi=(2)
+cfn=(4068)
+calls=1 0 
+0 159
+0 1
+0 36
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 20817
+0 5
+0 1323
+cob=(6) /home/me/projects/lame/build-callgrind-release/libmp3lame/libmp3lame.so.0
+cfi=(6) ???
+cfn=(5200) lame_encode_buffer_interleaved
+calls=63 0 
+0 182038964
+0 63
+0 22848
+cob=(6)
+cfi=(6)
+cfn=(5200)
+calls=1344 0 
+0 4464207890
+0 1344
+0 3502736
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 10307499
+0 5
+0 7175
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 851
+0 5
+0 2
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 7824
+0 5
+0 10
+
+ob=(1)
+fl=(1)
+fn=(3980) 0x0000000000013ec0
+0 7040
+cfn=(3000) 0x000000000000b830
+calls=118 0 
+0 54762
+0 3748
+cob=(2)
+cfi=(2)
+cfn=(3246)
+calls=1 0 
+0 11
+cob=(2)
+cfi=(2)
+cfn=(3254)
+calls=1 0 
+0 17
+cob=(2)
+cfi=(2)
+cfn=(3210)
+calls=1 0 
+0 17
+cob=(2)
+cfi=(2)
+cfn=(3202)
+calls=1 0 
+0 19
+0 12
+
+fn=(3978)
+0 375
+cfn=(3980)
+calls=23 0 
+0 9225
+0 225
+
+fn=(3979) 0x0000000000016960'2
+0 2375
+cfn=(3980)
+calls=95 0 
+0 56401
+0 1425
+
+fn=(0) 0x00000000000215c0
+cob=(7)
+cfi=(7)
+cfn=(3922)
+calls=1 0 
+0 4664262840
+
+fn=(886) 0x000000000002a370
+0 1004
+
+fn=(3050) 0x000000000000a9c0
+0 2744
+cfn=(886)
+calls=98 0 
+0 647
+0 801
+cfn=(886)
+calls=141 0 
+0 357
+0 1907
+
+fn=(3000)
+0 16581
+cfn=(3020) 0x000000000000ab70
+calls=273 0 
+0 32548
+0 5633
+
+fn=(3020)
+0 24715
+cfn=(3050)
+calls=269 0 
+0 6456
+0 1377
+
+fn=(218)
+0 17
+
+ob=(6)
+fl=(6)
+fn=(4906) apply_preset
+0 24
+cfn=(4908) apply_abr_preset
+calls=1 0 
+0 17919
+
+fn=(4934) lame_get_quant_comp
+0 6
+cfn=(4786) is_lame_global_flags_valid
+calls=2 0 
+0 12
+0 2
+0 10
+
+fn=(4994) lame_get_scale
+0 3
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 6
+
+fn=(5200)
+0 15488
+cfn=(4786)
+calls=1408 0 
+0 8448
+0 1408
+0 7040
+cfn=(4834) is_lame_internal_flags_valid
+calls=1408 0 
+0 15488
+0 1408
+0 9856
+cfn=(5202) update_inbuffer_size
+calls=1408 0 
+0 39224
+0 10273216
+cfn=(5204) lame_encode_buffer_sample_t
+calls=1408 0 
+0 4635895369
+
+fn=(5266) fft_short
+0 1329272
+cfn=(5250) fht
+calls=588 0 
+0 4606980
+0 3332
+
+fn=(5268) vbrpsy_compute_MS_thresholds
+0 7790681
+
+fn=(5300) on_pe
+0 55600
+cfn=(5306) ResvMaxBits
+calls=2779 0 
+0 125713
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 633
+0 2784
+0 313778
+
+fn=(5306)
+0 125759
+
+fn=(5324) athAdjust
+0 1494948
+cob=(5) /usr/lib/libm.so.6
+cfi=(5) ???
+cfn=(5116) log10
+calls=114996 0 
+0 9544668
+0 114996
+0 2184924
+cob=(5)
+cfi=(5)
+cfn=(5084) powf
+calls=114996 0 
+0 7244748
+0 114996
+0 574980
+cob=(5)
+cfi=(5)
+cfn=(5116)
+calls=114996 0 
+0 7339038
+0 114996
+0 1379952
+
+fn=(5354) calc_noise
+0 105287219
+cob=(5)
+cfi=(5)
+cfn=(5116)
+calls=1458944 0 
+0 120191627
+0 1458944
+0 302951890
+
+fn=(5360) scale_bitcount
+0 49342081
+
+fn=(5418) UpdateMusicCRC
+0 5564
+cfn=(5420) CRC_update_lookup
+calls=1391 0 
+0 1585700
+0 4173
+
+fn=(4828) lame_init_params
+0 11
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 7
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 694
+0 5
+0 617
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 711
+0 5
+0 136
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 604
+0 5
+0 11
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 924
+0 5
+0 133
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 18534
+0 5
+0 48
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 577
+0 5
+0 3
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 565
+0 5
+0 7
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 569
+0 5
+0 4
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 565
+0 5
+0 400
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 692
+0 5
+0 8
+cfn=(4934)
+calls=1 0 
+0 15
+0 1
+0 4
+cfn=(4946) lame_get_quant_comp_short
+calls=1 0 
+0 15
+0 1
+0 4
+cfn=(4958) lame_get_msfix
+calls=1 0 
+0 16
+0 1
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 674
+0 5
+0 4
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 672
+0 5
+0 23
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 826
+0 5
+0 94
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 777
+0 5
+0 2
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 2477293
+0 5
+0 2
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 1590063
+0 5
+0 3
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 781
+0 5
+0 25
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 728
+0 5
+0 37
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 694
+0 5
+0 34
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 855
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 658
+0 5
+0 8
+
+fn=(4834)
+0 15528
+
+fn=(4852) has_SSE
+0 2
+
+fn=(4876) SmpFrqIndex
+0 9
+
+fn=(4900) lame_set_VBR_mean_bitrate_kbps
+0 24
+cfn=(4786)
+calls=4 0 
+0 24
+0 4
+0 32
+
+fn=(5000) lame_set_scale
+0 5
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 8
+
+fn=(5012) lame_set_maskingadjust
+0 5
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 8
+
+fn=(5018) lame_get_maskingadjust_short
+0 3
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 6
+
+fn=(5132) init_xrpow_core_init
+0 3
+
+fn=(5228) lame_encode_mp3_frame
+0 188872
+cfn=(5242) L3psycho_anal_vbr
+calls=2779 0 
+0 1073731106
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 718805
+0 2784
+0 103937
+cfn=(5234) mdct_sub48
+calls=1390 0 
+0 289299764
+0 1390
+0 22343
+cfn=(5396) format_bitstream
+calls=1389 0 
+0 113481951
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 70303
+0 1394
+0 6950
+cfn=(5210) copy_buffer
+calls=1390 0 
+0 1743224
+0 1390
+0 36140
+cob=(2)
+cfi=(2)
+cfn=(4350)
+calls=1389 0 
+0 29169
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 753
+0 1394
+0 94520
+cfn=(5282) CBR_iteration_loop
+calls=1389 0 
+0 3156993769
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 2901069
+0 1394
+0 176700
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 196703
+0 5
+0 6173
+cob=(2)
+cfi=(2)
+cfn=(4680)
+calls=1 0 
+0 4626
+0 1
+0 4
+cob=(2)
+cfi=(2)
+cfn=(4680)
+calls=1 0 
+0 4626
+0 1
+0 13
+cob=(2)
+cfi=(2)
+cfn=(4350)
+calls=1 0 
+0 352
+0 1
+0 5
+cob=(2)
+cfi=(2)
+cfn=(4350)
+calls=1 0 
+0 352
+0 1
+0 9
+
+fn=(5234)
+0 82069
+cfn=(5236) window_subband
+calls=2782 0 
+0 6073106
+0 22256
+cfn=(5236)
+calls=2782 0 
+0 6073106
+0 133536
+cfn=(5236)
+calls=44512 0 
+0 97169696
+0 200304
+cfn=(5236)
+calls=50076 0 
+0 109315908
+0 70425907
+
+fn=(5346) count_bit_noESC_from3
+0 377498172
+
+fn=(5402) LongHuffmancodebits
+0 187740
+cfn=(5404) Huffmancode
+calls=5364 0 
+0 14743864
+0 37548
+cfn=(5404)
+calls=5364 0 
+0 23930736
+0 37548
+cfn=(5404)
+calls=5364 0 
+0 40869916
+0 48276
+
+fn=(5482) lame_close
+0 22
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 7097
+0 5
+0 12
+cob=(2)
+cfi=(2)
+cfn=(4404)
+calls=1 0 
+0 79
+0 1
+0 2
+
+fn=(4810) lame_set_VBR
+0 12
+cfn=(4786)
+calls=2 0 
+0 12
+0 2
+0 20
+
+fn=(4918) lame_get_VBR_mean_bitrate_kbps
+0 9
+cfn=(4786)
+calls=3 0 
+0 18
+0 3
+0 15
+
+fn=(4976) lame_set_short_threshold_lrm
+0 5
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 8
+
+fn=(4988) lame_set_short_threshold_s
+0 5
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 8
+
+fn=(5024) lame_set_maskingadjust_short
+0 5
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 8
+
+fn=(5042) lame_get_ATHcurve
+0 3
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 6
+
+fn=(5054) lame_get_interChRatio
+0 3
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 19
+
+fn=(5060) lame_set_interChRatio
+0 5
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 14
+
+fn=(5096) iteration_init
+0 309
+cfn=(5102) ATHformula
+calls=21 0 
+0 7602
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 1712
+0 26
+0 3324
+cfn=(5102)
+calls=554 0 
+0 200548
+0 554
+0 2388
+cfn=(5102)
+calls=6 0 
+0 2172
+0 6
+0 912
+cfn=(5102)
+calls=152 0 
+0 55024
+0 152
+0 795
+cfn=(5102)
+calls=13 0 
+0 4706
+0 13
+0 1074
+cfn=(5102)
+calls=179 0 
+0 64798
+0 179
+0 1003
+cfn=(5102)
+calls=6 0 
+0 2172
+0 6
+0 300
+cfn=(5102)
+calls=50 0 
+0 18100
+0 50
+0 290
+cfn=(5102)
+calls=1 0 
+0 363
+0 1
+0 10
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=1 0 
+0 63
+0 1
+0 2
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 741
+0 5
+0 12
+cob=(5)
+cfi=(5)
+cfn=(5066) pow
+calls=1 0 
+0 77
+0 1
+0 41030
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=8206 0 
+0 853424
+0 8206
+0 41044
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=1 0 
+0 104
+0 1
+0 49236
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=8206 0 
+0 853424
+0 8206
+0 73875
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=1 0 
+0 104
+0 1
+0 1792
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=256 0 
+0 26550
+0 256
+0 1039
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=1 0 
+0 104
+0 1
+0 2611
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=373 0 
+0 38718
+0 373
+0 1498
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 29331
+0 5
+0 2
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 642
+0 5
+0 7
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=1 0 
+0 63
+0 1
+0 14
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=1 0 
+0 63
+0 1
+0 14
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=1 0 
+0 63
+0 1
+0 14
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=1 0 
+0 63
+0 1
+0 7
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=1 0 
+0 63
+0 1
+0 10
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=1 0 
+0 63
+0 1
+0 8
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=1 0 
+0 63
+0 1
+0 7
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=1 0 
+0 63
+0 1
+0 4041
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=576 0 
+0 36288
+0 576
+0 4313
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=192 0 
+0 12096
+0 192
+0 2271
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=158 0 
+0 9954
+0 158
+0 1207
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=56 0 
+0 3528
+0 56
+0 344
+
+fn=(5222) isResamplingNecessary
+0 21165
+
+fn=(5236)
+0 218631816
+
+fn=(5250)
+0 232833860
+
+fn=(5294) getframebits
+0 87612
+
+fn=(5340) noquant_count_bits
+0 299854308
+cfn=(5342) choose_table_nonMMX
+calls=97 0 
+0 9576
+0 2108570
+cfn=(5342)
+calls=210857 0 
+0 68949471
+0 2530963
+cfn=(5342)
+calls=210857 0 
+0 202407879
+0 3923863
+cfn=(5342)
+calls=183872 0 
+0 202501536
+0 1103232
+
+fn=(5344) count_bit_noESC_from2
+0 151888881
+
+fn=(5364) count_bit_null
+0 54
+
+fn=(5370) best_scalefac_store
+0 4450879
+cfn=(5360)
+calls=107 0 
+0 45939
+0 107
+0 224744
+cob=(2)
+cfi=(2)
+cfn=(4680)
+calls=267 0 
+0 2670
+0 267
+0 995586
+
+fn=(5412) compute_flushbits
+0 33499
+cfn=(5294)
+calls=631 0 
+0 13251
+0 631
+0 1520
+cfn=(5294)
+calls=760 0 
+0 15960
+0 760
+0 27820
+
+fn=(4964) lame_set_msfix
+0 6
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 10
+
+fn=(5078) lame_set_exp_nspsytune
+0 6
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 8
+
+fn=(5104) ATHformula_GB
+0 42731
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=2136 0 
+0 222144
+0 2136
+0 8
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=1 0 
+0 104
+0 1
+0 12822
+cob=(5)
+cfi=(5)
+cfn=(5110) exp
+calls=2136 0 
+0 74760
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 802
+0 2141
+0 14959
+cob=(5)
+cfi=(5)
+cfn=(5110)
+calls=2137 0 
+0 74795
+0 2137
+0 8548
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=2137 0 
+0 222248
+0 2137
+0 51290
+
+fn=(5126) huffman_init
+0 28732
+
+fn=(5152) compute_bark_values
+0 68
+cfn=(5144) freq2bark
+calls=2 0 
+0 240
+0 2
+0 808
+cfn=(5144)
+calls=101 0 
+0 15512
+0 101
+0 618
+cfn=(5144)
+calls=103 0 
+0 15775
+0 103
+0 927
+cfn=(5144)
+calls=103 0 
+0 15714
+0 103
+0 721
+cfn=(5144)
+calls=103 0 
+0 15804
+0 103
+0 531
+
+fn=(5446) lame_encode_buffer
+0 28
+cfn=(4786)
+calls=2 0 
+0 12
+0 2
+0 10
+cfn=(4834)
+calls=2 0 
+0 22
+0 2
+0 14
+cfn=(5202)
+calls=2 0 
+0 42
+0 7442
+cfn=(5204)
+calls=2 0 
+0 10241004
+
+fn=(5472) save_gain_values
+0 12
+
+fn=(4698) disable_FPE
+0 1
+
+fn=(4786)
+0 8742
+
+fn=(4798) lame_set_brate
+0 12
+cfn=(4786)
+calls=2 0 
+0 12
+0 2
+0 20
+
+fn=(4864) nearestBitrateFullIndex
+0 70
+
+fn=(4882) FindNearestBitrate
+0 228
+
+fn=(4952) lame_set_quant_comp_short
+0 6
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 8
+
+fn=(5138) psymodel_init
+0 70
+cob=(2)
+cfi=(2)
+cfn=(4594)
+calls=1 0 
+0 11354
+0 1
+0 733
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 1357
+0 5
+0 496
+cfn=(5144)
+calls=62 0 
+0 9403
+0 62
+0 3845
+cfn=(5144)
+calls=513 0 
+0 83673
+0 513
+0 252
+cfn=(5144)
+calls=63 0 
+0 9523
+0 63
+0 5579
+cob=(5)
+cfi=(5)
+cfn=(4870) cos
+calls=36 0 
+0 2895
+0 36
+0 216
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=36 0 
+0 3744
+0 36
+0 924
+cfn=(5144)
+calls=62 0 
+0 9432
+0 62
+0 10
+cfn=(5144)
+calls=1 0 
+0 120
+0 1
+0 377
+cob=(5)
+cfi=(5)
+cfn=(4870)
+calls=13 0 
+0 1046
+0 13
+0 78
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=13 0 
+0 1352
+0 13
+0 2053
+cfn=(5144)
+calls=22 0 
+0 3337
+0 22
+0 115
+cfn=(5152)
+calls=1 0 
+0 40636
+0 753
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=33 0 
+0 990
+0 33
+0 205
+cfn=(5154) init_s3_values
+calls=1 0 
+0 235241
+0 1721
+cfn=(5102)
+calls=63 0 
+0 22806
+0 63
+0 4500
+cfn=(5102)
+calls=450 0 
+0 162900
+0 450
+0 3078
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=513 0 
+0 53352
+0 513
+0 8496
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=63 0 
+0 6552
+0 63
+0 1506
+cfn=(5144)
+calls=1 0 
+0 120
+0 1
+0 312
+cfn=(5144)
+calls=39 0 
+0 6109
+0 39
+0 1065
+cfn=(5144)
+calls=129 0 
+0 21061
+0 129
+0 160
+cfn=(5144)
+calls=40 0 
+0 6229
+0 40
+0 2439
+cob=(5)
+cfi=(5)
+cfn=(4870)
+calls=17 0 
+0 1435
+0 17
+0 102
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=17 0 
+0 1768
+0 17
+0 553
+cfn=(5144)
+calls=39 0 
+0 6109
+0 39
+0 10
+cfn=(5144)
+calls=1 0 
+0 120
+0 1
+0 281
+cob=(5)
+cfi=(5)
+cfn=(4870)
+calls=6 0 
+0 457
+0 6
+0 36
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=6 0 
+0 624
+0 6
+0 1206
+cfn=(5144)
+calls=13 0 
+0 2000
+0 13
+0 77
+cfn=(5152)
+calls=1 0 
+0 26494
+0 607
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=28 0 
+0 2912
+0 28
+0 36
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=12 0 
+0 1248
+0 12
+0 1080
+cfn=(5102)
+calls=40 0 
+0 14480
+0 40
+0 890
+cfn=(5102)
+calls=89 0 
+0 32218
+0 89
+0 774
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=129 0 
+0 13416
+0 129
+0 2237
+cob=(5)
+cfi=(5)
+cfn=(5120) log
+calls=9 0 
+0 414
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 701
+0 14
+0 770
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=40 0 
+0 4160
+0 40
+0 702
+cob=(5)
+cfi=(5)
+cfn=(5120)
+calls=30 0 
+0 1380
+0 30
+0 383
+cfn=(5154)
+calls=1 0 
+0 106172
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 231100
+0 5
+0 9
+cob=(5)
+cfi=(5)
+cfn=(5110)
+calls=1 0 
+0 35
+0 1
+0 348
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=1 0 
+0 104
+0 1
+0 28
+cfn=(5102)
+calls=1 0 
+0 362
+0 1
+0 2555
+cfn=(5102)
+calls=511 0 
+0 184982
+0 511
+0 2560
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=512 0 
+0 53248
+0 512
+0 7975
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=1 0 
+0 63
+0 1
+0 312
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=39 0 
+0 2457
+0 39
+0 166
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=1 0 
+0 63
+0 1
+0 496
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=62 0 
+0 3906
+0 62
+0 750
+cfn=(5144)
+calls=1 0 
+0 120
+0 1
+0 496
+cfn=(5144)
+calls=62 0 
+0 9403
+0 62
+0 3845
+cfn=(5144)
+calls=513 0 
+0 83673
+0 513
+0 252
+cfn=(5144)
+calls=63 0 
+0 9523
+0 63
+0 5575
+cob=(5)
+cfi=(5)
+cfn=(4870)
+calls=36 0 
+0 2895
+0 36
+0 216
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=36 0 
+0 3744
+0 36
+0 924
+cfn=(5144)
+calls=62 0 
+0 9432
+0 62
+0 10
+cfn=(5144)
+calls=1 0 
+0 120
+0 1
+0 341
+cob=(5)
+cfi=(5)
+cfn=(4870)
+calls=6 0 
+0 457
+0 6
+0 36
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=6 0 
+0 624
+0 6
+0 1206
+cfn=(5144)
+calls=13 0 
+0 2000
+0 13
+0 401
+
+fn=(5144)
+0 31695
+cob=(5)
+cfi=(5)
+cfn=(5150) atan
+calls=2112 0 
+0 139288
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 702
+0 2117
+0 14791
+cob=(5)
+cfi=(5)
+cfn=(5150)
+calls=2113 0 
+0 127724
+0 2113
+0 16904
+
+fn=(5308) init_outer_loop
+0 1290036
+
+fn=(5310) init_xrpow
+0 150120
+cfn=(5312) init_xrpow_core_c
+calls=5560 0 
+0 67356505
+0 612240
+
+fn=(5382) ResvAdjust
+0 22240
+
+fn=(5452) flush_bitstream
+0 13
+cfn=(5412)
+calls=1 0 
+0 64
+0 1
+0 5
+cfn=(5406) drain_into_ancillary
+calls=1 0 
+0 55443
+0 6
+cfn=(5294)
+calls=1 0 
+0 21
+0 1
+0 12
+
+fn=(5458) get_lame_short_version
+0 2
+
+fn=(4580) lame_init
+0 4
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 620
+0 5
+0 3
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 1089
+0 5
+0 7
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 588
+0 5
+0 37
+cob=(2)
+cfi=(2)
+cfn=(4594)
+calls=1 0 
+0 30329
+0 1
+0 19
+cob=(2)
+cfi=(2)
+cfn=(4594)
+calls=1 0 
+0 3053
+0 1
+0 6
+cob=(2)
+cfi=(2)
+cfn=(4594)
+calls=1 0 
+0 388
+0 1
+0 9
+
+fn=(4792) lame_set_in_samplerate
+0 6
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 10
+
+fn=(4822) lame_set_write_id3tag_automatic
+0 6
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 7
+
+fn=(4888) BitrateIndex
+0 59
+
+fn=(4928) lame_set_sfscale
+0 6
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 11
+
+fn=(4940) lame_set_quant_comp
+0 6
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 8
+
+fn=(4970) lame_get_short_threshold_lrm
+0 3
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 6
+
+fn=(4982) lame_get_short_threshold_s
+0 3
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 6
+
+fn=(5030) lame_get_ATHlower
+0 3
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 6
+
+fn=(5154)
+0 40
+cob=(2)
+cfi=(2)
+cfn=(4680)
+calls=1 0 
+0 16402
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 17163
+0 6
+0 152564
+cob=(5)
+cfi=(5)
+cfn=(5110)
+calls=1033 0 
+0 36155
+0 1033
+0 110528
+cob=(2)
+cfi=(2)
+cfn=(4594)
+calls=2 0 
+0 3341
+0 2
+0 1674
+cob=(2)
+cfi=(2)
+cfn=(4350)
+calls=102 0 
+0 1119
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 843
+0 107
+0 436
+
+fn=(5282)
+0 20850
+cfn=(5288) ResvFrameBegin
+calls=1389 0 
+0 98619
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 1269
+0 1394
+0 31970
+cfn=(5300)
+calls=1389 0 
+0 248406
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 1315
+0 1394
+0 12510
+cfn=(5300)
+calls=1390 0 
+0 249338
+0 1390
+0 69500
+cfn=(5370)
+calls=5559 0 
+0 5719146
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 1681
+0 5564
+0 27800
+cfn=(5382)
+calls=5559 0 
+0 22236
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 583
+0 5564
+0 84380
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=196 0 
+0 5880
+0 196
+0 21456
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=5364 0 
+0 160920
+0 5364
+0 27800
+cfn=(5308)
+calls=5560 0 
+0 1290036
+0 22240
+cfn=(5310)
+calls=5560 0 
+0 68118865
+0 38920
+cfn=(5318) calc_xmin
+calls=5559 0 
+0 62688931
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 12195
+0 5564
+0 44480
+cfn=(5326) bin_search_StepSize.isra.0
+calls=5560 0 
+0 216318750
+0 50040
+cfn=(5348) outer_loop.part.0
+calls=5560 0 
+0 2328116891
+0 22240
+cfn=(5376) best_huffman_divide
+calls=5559 0 
+0 475594237
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 3355
+0 5564
+0 29190
+cfn=(5390) ResvFrameEnd
+calls=1389 0 
+0 48632
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 627
+0 1394
+0 630896
+cfn=(5428) reduce_side
+calls=353 0 
+0 22921
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 652
+0 358
+0 708
+
+fn=(5326)
+0 322005
+cfn=(5332) count_bits
+calls=13312 0 
+0 132526099
+0 13312
+0 27800
+cfn=(5332)
+calls=5559 0 
+0 54651530
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 8841
+0 5564
+0 273776
+cfn=(5332)
+calls=2887 0 
+0 28361515
+0 2887
+0 125421
+
+fn=(5406)
+0 257154
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 653
+0 5
+0 4
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 739
+0 5
+0 28
+cob=(2)
+cfi=(2)
+cfn=(5464)
+calls=14 0 
+0 182
+0 14
+0 732
+
+fn=(4588) init_log_table
+0 1
+
+fn=(4816) lame_set_bWriteVbrTag
+0 6
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 10
+
+fn=(4858) has_SSE2
+0 2
+
+fn=(4894) init_bit_stream_w
+0 7
+cob=(2)
+cfi=(2)
+cfn=(4594)
+calls=1 0 
+0 288
+0 1
+0 5
+
+fn=(4908)
+0 128
+cfn=(4864)
+calls=1 0 
+0 35
+0 1
+0 4
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 614
+0 5
+0 3
+cfn=(4900)
+calls=1 0 
+0 21
+0 1
+0 2
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 714
+0 5
+0 6
+cfn=(4900)
+calls=1 0 
+0 21
+0 1
+0 2
+cfn=(4918)
+calls=1 0 
+0 15
+0 1
+0 6
+cfn=(4900)
+calls=1 0 
+0 21
+0 1
+0 2
+cfn=(4918)
+calls=1 0 
+0 15
+0 1
+0 3
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 626
+0 5
+0 11
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 639
+0 5
+0 4
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 650
+0 5
+0 9
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 724
+0 5
+0 9
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 619
+0 5
+0 8
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 711
+0 5
+0 8
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 691
+0 5
+0 9
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 619
+0 5
+0 3
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 631
+0 5
+0 2
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 705
+0 5
+0 7
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 647
+0 5
+0 6
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 639
+0 5
+0 8
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 676
+0 5
+0 27
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 671
+0 5
+0 6
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 703
+0 5
+0 11
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 707
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 692
+0 5
+0 6
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 626
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 707
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 695
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 656
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 673
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 643
+0 5
+0 5
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 651
+0 5
+0 1
+
+fn=(5102)
+0 40603
+cfn=(5104)
+calls=2137 0 
+0 733763
+
+fn=(5216) fill_buffer
+0 31020
+cfn=(5222)
+calls=1409 0 
+0 21135
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 670
+0 1414
+0 28200
+cob=(2)
+cfi=(2)
+cfn=(4350)
+calls=1410 0 
+0 640444
+0 1410
+0 8460
+cob=(2)
+cfi=(2)
+cfn=(4350)
+calls=1410 0 
+0 640444
+0 1410
+0 23970
+
+fn=(5248) fft_long
+0 39920800
+cfn=(5250)
+calls=5560 0 
+0 228226880
+
+fn=(5362) count_bit_noESC
+0 2965620
+
+fn=(5420)
+0 1585700
+
+fn=(4840) has_3DNow
+0 2
+
+fn=(4958)
+0 6
+cfn=(4786)
+calls=2 0 
+0 12
+0 2
+0 12
+
+fn=(5006) lame_get_maskingadjust
+0 3
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 6
+
+fn=(5090) lame_init_bitstream
+0 4
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 123
+
+fn=(5188) init_fft
+0 17
+cob=(5)
+cfi=(5)
+cfn=(4870)
+calls=1 0 
+0 66
+0 1
+0 8176
+cob=(5)
+cfi=(5)
+cfn=(4870)
+calls=1022 0 
+0 92247
+0 1022
+0 6138
+cob=(5)
+cfi=(5)
+cfn=(4870)
+calls=1023 0 
+0 97160
+0 1023
+0 12285
+cob=(5)
+cfi=(5)
+cfn=(4870)
+calls=1 0 
+0 66
+0 1
+0 756
+cob=(5)
+cfi=(5)
+cfn=(4870)
+calls=126 0 
+0 10298
+0 126
+0 1151
+
+fn=(5204)
+0 35250
+cfn=(5210)
+calls=1409 0 
+0 21135
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 602
+0 1414
+0 70580
+cfn=(5216)
+calls=1409 0 
+0 1396915
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 2249
+0 1414
+0 47720
+cfn=(5228)
+calls=1389 0 
+0 4635334833
+cob=(1)
+cfi=(1)
+cfn=(3978)
+calls=1 0 
+0 4487807
+0 1394
+0 4735060
+
+fn=(5210)
+0 34927
+cob=(2)
+cfi=(2)
+cfn=(4350)
+calls=1391 0 
+0 97737
+0 1391
+0 23780
+cfn=(5418)
+calls=1390 0 
+0 1594367
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 1673
+0 1395
+0 9737
+
+fn=(5288)
+0 8340
+cfn=(5294)
+calls=1389 0 
+0 29169
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 612
+0 1394
+0 59770
+
+fn=(5312)
+0 67356505
+
+fn=(5348)
+0 494840
+cfn=(5354)
+calls=5559 0 
+0 39115795
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 7642
+0 5564
+0 192842829
+cfn=(5360)
+calls=110732 0 
+0 47746281
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 1073
+0 110737
+0 276072
+cfn=(5360)
+calls=2049 0 
+0 874693
+0 2049
+0 7800
+cfn=(5360)
+calls=1560 0 
+0 667152
+0 1560
+0 42
+cfn=(5360)
+calls=14 0 
+0 7546
+0 14
+0 1555543
+cfn=(5332)
+calls=61324 0 
+0 562560019
+0 61324
+0 553545
+cfn=(5332)
+calls=110709 0 
+0 796873580
+0 110709
+0 1905931
+cfn=(5354)
+calls=110709 0 
+0 490766822
+0 110709
+0 29312135
+cfn=(5332)
+calls=2745 0 
+0 27341219
+0 2745
+0 72265
+cfn=(5332)
+calls=14453 0 
+0 112885893
+0 14453
+0 915138
+cob=(5)
+cfi=(5)
+cfn=(5066)
+calls=112048 0 
+0 11652992
+0 112048
+0 9148132
+
+fn=(5390)
+0 48668
+
+fn=(5428)
+0 22986
+
+fn=(5440) lame_encode_flush
+0 14
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 6
+cfn=(4834)
+calls=1 0 
+0 11
+0 1
+0 599
+cfn=(5222)
+calls=1 0 
+0 15
+0 1
+0 77
+cfn=(5446)
+calls=1 0 
+0 7124070
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 3125135
+0 6
+0 47
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 56177
+0 5
+0 5
+cfn=(5210)
+calls=1 0 
+0 633
+0 1
+0 3
+cfn=(5472)
+calls=1 0 
+0 12
+0 24
+
+fn=(5488) freegfc
+0 3865
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 756
+0 5
+0 8
+cob=(2)
+cfi=(2)
+cfn=(4404)
+calls=1 0 
+0 176
+0 1
+0 4
+cob=(2)
+cfi=(2)
+cfn=(4404)
+calls=1 0 
+0 54
+0 1
+0 4
+cob=(2)
+cfi=(2)
+cfn=(4404)
+calls=1 0 
+0 185
+0 1
+0 4
+cob=(2)
+cfi=(2)
+cfn=(4404)
+calls=1 0 
+0 181
+0 1
+0 2
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 618
+0 5
+0 8
+cob=(2)
+cfi=(2)
+cfn=(4404)
+calls=1 0 
+0 155
+0 1
+0 6
+cob=(2)
+cfi=(2)
+cfn=(4404)
+calls=1 0 
+0 181
+0 1
+0 2
+cob=(2)
+cfi=(2)
+cfn=(4404)
+calls=1 0 
+0 151
+0 1
+0 5
+cob=(2)
+cfi=(2)
+cfn=(4404)
+calls=1 0 
+0 151
+0 1
+
+fn=(4780) lame_set_num_channels
+0 6
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 681
+0 5
+0 11
+
+fn=(4804) lame_set_quality
+0 6
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 14
+
+fn=(4846) has_MMX
+0 2
+
+fn=(4946)
+0 6
+cfn=(4786)
+calls=2 0 
+0 12
+0 2
+0 10
+
+fn=(5036) lame_set_ATHlower
+0 5
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 8
+
+fn=(5048) lame_set_ATHcurve
+0 5
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 8
+
+fn=(5072) lame_get_exp_nspsytune
+0 3
+cfn=(4786)
+calls=1 0 
+0 6
+0 1
+0 5
+
+fn=(5194) get_max_frame_buffer_size_by_constraint
+0 18
+
+fn=(5202)
+0 15515
+cob=(2)
+cfi=(2)
+cfn=(4594)
+calls=1 0 
+0 4821
+0 1
+0 5
+cob=(2)
+cfi=(2)
+cfn=(4594)
+calls=1 0 
+0 4821
+0 1
+0 14102
+
+fn=(5242)
+0 585494513
+cob=(5)
+cfi=(5)
+cfn=(5116)
+calls=802163 0 
+0 66198309
+0 802163
+0 23320773
+cob=(2)
+cfi=(2)
+cfn=(4680)
+calls=11120 0 
+0 155680
+0 11120
+0 55600
+cob=(2)
+cfi=(2)
+cfn=(4680)
+calls=11120 0 
+0 155680
+0 11120
+0 150120
+cfn=(5260) convert_partition2scalefac
+calls=2780 0 
+0 3755780
+0 66720
+cfn=(5260)
+calls=8340 0 
+0 11267340
+0 111200
+cfn=(5260)
+calls=11120 0 
+0 12421040
+0 2686980
+cfn=(5260)
+calls=1176 0 
+0 989016
+0 11751934
+cfn=(5248)
+calls=5559 0 
+0 268099452
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 48795
+0 5564
+0 10785668
+cfn=(5266)
+calls=195 0 
+0 5909280
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 30879
+0 200
+0 21003214
+cob=(5)
+cfi=(5)
+cfn=(5116)
+calls=32316 0 
+0 2665958
+0 32316
+0 1092984
+cfn=(5268)
+calls=294 0 
+0 499540
+0 117712
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=390 0 
+0 24570
+0 390
+0 5265
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=195 0 
+0 12285
+0 195
+0 7316937
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=598 0 
+0 37674
+0 598
+0 727362
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=208 0 
+0 13104
+0 208
+0 5616
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=572 0 
+0 36036
+0 572
+0 1159808
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=208 0 
+0 13104
+0 208
+0 364
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=182 0 
+0 11466
+0 182
+0 436280
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=169 0 
+0 10647
+0 169
+0 390
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=195 0 
+0 12285
+0 195
+0 4043
+cob=(5)
+cfi=(5)
+cfn=(5084)
+calls=208 0 
+0 13104
+0 208
+0 5199860
+cob=(5)
+cfi=(5)
+cfn=(5116)
+calls=225204 0 
+0 18591987
+0 225204
+0 1996990
+cob=(5)
+cfi=(5)
+cfn=(5116)
+calls=4656 0 
+0 384123
+0 4656
+0 121248
+cob=(5)
+cfi=(5)
+cfn=(5116)
+calls=4656 0 
+0 384133
+0 4656
+0 121248
+cob=(5)
+cfi=(5)
+cfn=(5116)
+calls=4656 0 
+0 384163
+0 4656
+0 149118
+cfn=(5268)
+calls=2682 0 
+0 7291141
+0 46182
+
+fn=(5260)
+0 28433176
+
+fn=(5318)
+0 169224
+cfn=(5324)
+calls=5363 0 
+0 1402128
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 821
+0 5368
+0 643680
+cfn=(5324)
+calls=107280 0 
+0 28047480
+0 107280
+0 30606008
+cfn=(5324)
+calls=196 0 
+0 54866
+0 196
+0 17248
+cfn=(5324)
+calls=2156 0 
+0 603526
+0 2156
+0 1040570
+
+fn=(5332)
+0 277869065
+cob=(2)
+cfi=(2)
+cfn=(4680)
+calls=210990 0 
+0 9950204
+0 210990
+0 265705790
+cfn=(5340)
+calls=210989 0 
+0 783387696
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 2329
+0 210994
+0 2767959
+cfn=(5334) quantize_lines_xrpow
+calls=307551 0 
+0 48034904
+0 2105594
+cfn=(5334)
+calls=37184 0 
+0 52853780
+0 3176964
+cfn=(5334)
+calls=210990 0 
+0 268087888
+0 843960
+
+fn=(5334)
+0 368976572
+
+fn=(5342)
+0 383839956
+cfn=(5364)
+calls=27 0 
+0 54
+cfn=(5362)
+calls=15102 0 
+0 2965620
+cfn=(5346)
+calls=854831 0 
+0 377498172
+cfn=(5344)
+calls=341837 0 
+0 151888881
+0 2031716
+
+fn=(5376)
+0 4144516
+cfn=(5342)
+calls=5102 0 
+0 656211
+0 817311
+cfn=(5342)
+calls=74301 0 
+0 43204472
+0 4856044
+cfn=(5342)
+calls=511248 0 
+0 226651728
+0 7057037
+cfn=(5342)
+calls=82327 0 
+0 118941672
+0 12846889
+cfn=(5342)
+calls=232 0 
+0 98579
+0 2554
+cfn=(5342)
+calls=232 0 
+0 591586
+0 551615
+cfn=(5342)
+calls=38780 0 
+0 54211689
+0 965054
+
+fn=(5396)
+0 15290
+cfn=(5294)
+calls=1390 0 
+0 29190
+0 1390
+0 15290
+cfn=(5398) encodeSideInfo2
+calls=1390 0 
+0 3085728
+0 2872728
+cob=(2)
+cfi=(2)
+cfn=(4350)
+calls=22 0 
+0 242
+0 22
+0 729027
+cfn=(5406)
+calls=1390 0 
+0 204073
+0 15290
+cfn=(5412)
+calls=1389 0 
+0 93313
+cob=(1)
+cfi=(1)
+cfn=(3979)
+calls=1 0 
+0 687
+0 1394
+0 2597138
+cob=(2)
+cfi=(2)
+cfn=(4350)
+calls=26 0 
+0 286
+0 26
+0 647180
+cfn=(5402)
+calls=5364 0 
+0 79855628
+0 15700579
+cob=(2)
+cfi=(2)
+cfn=(4350)
+calls=499 0 
+0 5489
+0 499
+0 1829121
+cfn=(5404)
+calls=196 0 
+0 641114
+0 1372
+cfn=(5404)
+calls=196 0 
+0 5200142
+0 9401
+
+fn=(5398)
+0 26410
+cob=(2)
+cfi=(2)
+cfn=(4680)
+calls=1390 0 
+0 15290
+0 1390
+0 3042638
+
+fn=(5404)
+0 45508777
+cob=(2)
+cfi=(2)
+cfn=(4350)
+calls=645 0 
+0 7095
+0 645
+0 19935663
+cob=(2)
+cfi=(2)
+cfn=(4350)
+calls=198 0 
+0 2178
+0 198
+0 19931216
+
+fn=(5528) free_id3tag
+0 31
+
+ob=(5)
+fl=(5)
+fn=(5150)
+0 267056
+
+fn=(5116)
+0 11050352
+cfn=(5118) __log10_finite
+calls=2762588 0 
+0 214633737
+
+fn=(5118)
+0 74589876
+cfn=(5120)
+calls=2762588 0 
+0 123468333
+0 16575528
+
+fn=(5084)
+0 7498008
+
+fn=(5120)
+0 123470173
+
+fn=(5066)
+0 14184661
+
+fn=(4870)
+0 209079
+
+fn=(5110)
+0 185780
+
+totals: 4664262840
