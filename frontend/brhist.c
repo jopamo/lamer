@@ -227,16 +227,6 @@ progress_line(const lame_global_flags * gf, int full, int frames)
 
 
 static int
-stats_value(double x)
-{
-    if (x > 0.0) {
-        console_printf(" %5.1f", x);
-        return 6;
-    }
-    return 0;
-}
-
-static int
 stats_head(double x, const char *txt)
 {
     if (x > 0.0) {
@@ -246,6 +236,27 @@ stats_head(double x, const char *txt)
     return 0;
 }
 
+static int
+stats_value(double x)
+{
+    if (x > 0.0) {
+        console_printf(" %5.1f", x);
+        return 6;
+    }
+    return 0;
+}
+
+
+static void
+console_cleareol(int n)
+{
+    if (Console_IO.str_clreoln[0]) {
+        console_printf("%s", Console_IO.str_clreoln);
+    }
+    else {
+        console_printf("%*s", Console_IO.disp_width - n, "");
+    }
+}
 
 static void
 stats_line(double *stat)
@@ -264,12 +275,7 @@ stats_line(double *stat)
     n += stats_head(stat[7], " short");
     n += stats_head(stat[8], " mixed");
     n += console_printf(" %%");
-    if (Console_IO.str_clreoln[0]) { /* ClearEndOfLine available */
-        console_printf("%s", Console_IO.str_clreoln);
-    }
-    else {
-        console_printf("%*s", Console_IO.disp_width - n, "");
-    }
+    console_cleareol(n);
     brhist.hist_printed_lines++;
 
     n = 1;
@@ -285,12 +291,7 @@ stats_line(double *stat)
     n += stats_value(stat[6]);
     n += stats_value(stat[7]);
     n += stats_value(stat[8]);
-    if (Console_IO.str_clreoln[0]) { /* ClearEndOfLine available */
-        console_printf("%s", Console_IO.str_clreoln);
-    }
-    else {
-        console_printf("%*s", Console_IO.disp_width - n, "");
-    }
+    console_cleareol(n);
     brhist.hist_printed_lines++;
 }
 

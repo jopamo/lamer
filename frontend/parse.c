@@ -188,21 +188,21 @@ currCharCodeSize(void)
 
 
 static
-char* toLatin1( char* src )
+char* convertEncoding(char* src, char const* target_encoding)
 {
     size_t w = currCharCodeSize();
     char* dst = 0;
     if (src != 0) {
         size_t const l = strlenMultiByte(src, w);
-        size_t const n = l*4;
-        dst = calloc(n+4, 4);
+        size_t const n = (l + 1) * 4;
+        dst = calloc(n + 4, 4);
         if (dst != 0) {
             char* cur_code = currentCharacterEncoding();
-            iconv_t xiconv = iconv_open("ISO_8859-1//TRANSLIT", cur_code);
+            iconv_t xiconv = iconv_open(target_encoding, cur_code);
             if (xiconv != (iconv_t)-1) {
                 char* i_ptr = (char*)src;
                 char* o_ptr = dst;
-                size_t srcln = l*w;
+                size_t srcln = l * w;
                 size_t avail = n;
                 iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
                 iconv_close(xiconv);
@@ -212,32 +212,16 @@ char* toLatin1( char* src )
     return dst;
 }
 
-
-static
-char* toUtf8( char* src )
+static char*
+toLatin1(char* src)
 {
-    size_t w = currCharCodeSize();
-    char* dst = 0;
-    if (src != 0) {
-        /* XXX: size calculation for UTF-16, a bit too much for UTF-8, but not too small */
-        size_t const l = strlenMultiByte(src, w);
-        size_t const n = (l+1)*4;
-        dst = calloc(n+4, 4);
-        if (dst != 0) {
-            char* cur_code = currentCharacterEncoding();
-            iconv_t xiconv = iconv_open("UTF-8//TRANSLIT", cur_code);
-            if (xiconv != (iconv_t)-1) {
-                char* i_ptr = (char*)src;
-                char* o_ptr = &dst[0];
-                size_t srcln = l*w;
-                size_t avail = n;
-                iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
-                iconv_close(xiconv);
-            }
-        }
-    }
-    return dst;
+    return convertEncoding(src, "ISO_8859-1//TRANSLIT");
+}
 
+static char*
+toUtf8(char* src)
+{
+    return convertEncoding(src, "UTF-8//TRANSLIT");
 }
 
 

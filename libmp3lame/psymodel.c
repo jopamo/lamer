@@ -591,13 +591,12 @@ calc_energy(PsyConst_CB2SB_t const *l, FLOAT const *fftenergy, FLOAT * eb, FLOAT
 
 
 static void
-calc_mask_index_l(lame_internal_flags const *gfc, FLOAT const *max,
-                  FLOAT const *avg, unsigned char *mask_idx)
+calc_mask_index(PsyConst_CB2SB_t const *gdl, FLOAT const *max,
+                FLOAT const *avg, unsigned char *mask_idx)
 {
-    PsyConst_CB2SB_t const *const gdl = &gfc->cd_psy->l;
     FLOAT   m, a;
     int     b, k;
-    int const last_tab_entry = sizeof(tab) / sizeof(tab[0]) - 1;
+    int const last_tab_entry = dimension_of(tab) - 1;
     b = 0;
     a = avg[b] + avg[b + 1];
     assert(a >= 0);
@@ -620,6 +619,7 @@ calc_mask_index_l(lame_internal_flags const *gfc, FLOAT const *max,
     for (b = 1; b < gdl->npart - 1; b++) {
         a = avg[b - 1] + avg[b] + avg[b + 1];
         assert(a >= 0);
+        assert(b + 1 < gdl->npart);
         if (a > 0.0f) {
             m = max[b - 1];
             if (m < max[b])
@@ -790,41 +790,6 @@ attack_count4(int const attacks[4])
     }
 
     return count;
-}
-
-static int
-transient_attack_win(int final_mask, int pos)
-{
-    if (0 <= pos) {
-        int win = pos / 3;
-        if (win < 0) {
-            win = 0;
-        }
-        if (win > 2) {
-            win = 2;
-        }
-        if (final_mask != 0) {
-            if (win == 0 && (final_mask & 0x01)) {
-                return 0;
-            }
-            if (win == 1 && (final_mask & 0x02)) {
-                return 1;
-            }
-            if (win == 2 && (final_mask & 0x0c)) {
-                return 2;
-            }
-        }
-    }
-    if (final_mask & 0x01) {
-        return 0;
-    }
-    if (final_mask & 0x02) {
-        return 1;
-    }
-    if (final_mask & 0x0c) {
-        return 2;
-    }
-    return 0;
 }
 
 static void
@@ -1089,7 +1054,7 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
             trans->last_attack[chn] = (signed char) psv->last_attacks[chn];
 
             if (final != 0) {
-                attack_win = transient_attack_win(final, trans->pos[chn]);
+                attack_win = short_transient_attack_win(final, trans->pos[chn]);
             }
             if (attack_win >= 0 && attack_win < 3) {
                 attack_energy = en_short[attack_win + 1];
@@ -1163,110 +1128,20 @@ vbrpsy_skip_masking_s(lame_internal_flags * gfc, int chn, int sblock)
 
 
 static void
-vbrpsy_calc_mask_index_s(lame_internal_flags const *gfc, FLOAT const *max,
-                         FLOAT const *avg, unsigned char *mask_idx)
-{
-    PsyConst_CB2SB_t const *const gds = &gfc->cd_psy->s;
-    FLOAT   m, a;
-    int     b, k;
-    int const last_tab_entry = dimension_of(tab) - 1;
-    b = 0;
-    a = avg[b] + avg[b + 1];
-    assert(a >= 0);
-    if (a > 0.0f) {
-        m = max[b];
-        if (m < max[b + 1])
-            m = max[b + 1];
-        assert((gds->numlines[b] + gds->numlines[b + 1] - 1) > 0);
-        a = 20.0f * (m * 2.0f - a)
-            / (a * (gds->numlines[b] + gds->numlines[b + 1] - 1));
-        k = (int) a;
-        if (k > last_tab_entry)
-            k = last_tab_entry;
-        mask_idx[b] = k;
-    }
-    else {
-        mask_idx[b] = 0;
-    }
-
-    for (b = 1; b < gds->npart - 1; b++) {
-        a = avg[b - 1] + avg[b] + avg[b + 1];
-        assert(b + 1 < gds->npart);
-        assert(a >= 0);
-        if (a > 0.0) {
-            m = max[b - 1];
-            if (m < max[b])
-                m = max[b];
-            if (m < max[b + 1])
-                m = max[b + 1];
-            assert((gds->numlines[b - 1] + gds->numlines[b] + gds->numlines[b + 1] - 1) > 0);
-            a = 20.0f * (m * 3.0f - a)
-                / (a * (gds->numlines[b - 1] + gds->numlines[b] + gds->numlines[b + 1] - 1));
-            k = (int) a;
-            if (k > last_tab_entry)
-                k = last_tab_entry;
-            mask_idx[b] = k;
-        }
-        else {
-            mask_idx[b] = 0;
-        }
-    }
-    assert(b > 0);
-    assert(b == gds->npart - 1);
-
-    a = avg[b - 1] + avg[b];
-    assert(a >= 0);
-    if (a > 0.0f) {
-        m = max[b - 1];
-        if (m < max[b])
-            m = max[b];
-        assert((gds->numlines[b - 1] + gds->numlines[b] - 1) > 0);
-        a = 20.0f * (m * 2.0f - a)
-            / (a * (gds->numlines[b - 1] + gds->numlines[b] - 1));
-        k = (int) a;
-        if (k > last_tab_entry)
-            k = last_tab_entry;
-        mask_idx[b] = k;
-    }
-    else {
-        mask_idx[b] = 0;
-    }
-    assert(b == (gds->npart - 1));
-}
-
-
-static void
 vbrpsy_compute_masking_s(lame_internal_flags * gfc, const FLOAT(*fftenergy_s)[HBLKSIZE_s],
                          FLOAT * eb, FLOAT * thr, int chn, int sblock)
 {
     PsyStateVar_t *const psv = &gfc->sv_psy;
     PsyConst_CB2SB_t const *const gds = &gfc->cd_psy->s;
     FLOAT   max[CBANDS], avg[CBANDS];
-    int     i, j, b;
+    int     j, b;
     unsigned char mask_idx_s[CBANDS];
 
     memset(max, 0, sizeof(max));
     memset(avg, 0, sizeof(avg));
 
-    for (b = j = 0; b < gds->npart; ++b) {
-        FLOAT   ebb = 0, m = 0;
-        int const n = gds->numlines[b];
-        for (i = 0; i < n; ++i, ++j) {
-            FLOAT const el = fftenergy_s[sblock][j];
-            ebb += el;
-            if (m < el)
-                m = el;
-        }
-        eb[b] = ebb;
-        assert(ebb >= 0);
-        max[b] = m;
-        assert(n > 0);
-        avg[b] = ebb * gds->rnumlines[b];
-        assert(avg[b] >= 0);
-    }
-    assert(b == gds->npart);
-    assert(j == 129);
-    vbrpsy_calc_mask_index_s(gfc, max, avg, mask_idx_s);
+    calc_energy(gds, fftenergy_s[sblock], eb, max, avg);
+    calc_mask_index(gds, max, avg, mask_idx_s);
     for (j = b = 0; b < gds->npart; b++) {
         int     kk = gds->s3ind[b][0];
         int const last = gds->s3ind[b][1];
@@ -1337,7 +1212,7 @@ vbrpsy_compute_masking_l(lame_internal_flags * gfc, const FLOAT fftenergy[HBLKSI
     *    Calculate the energy and the tonality of each partition.
  *********************************************************************/
     calc_energy(gdl, fftenergy, eb_l, max, avg);
-    calc_mask_index_l(gfc, max, avg, mask_idx_l);
+    calc_mask_index(gdl, max, avg, mask_idx_l);
 
  /*********************************************************************
     *      convolve the partitioned energy and unpredictability

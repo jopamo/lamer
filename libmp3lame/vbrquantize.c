@@ -124,47 +124,6 @@ short_mask_relax_source_name(int psy_ch)
     return psy_ch < 2 ? "LR" : "MS";
 }
 
-static int
-short_transient_mask_attack_win(int final_mask)
-{
-    if (final_mask & 0x01) {
-        return 0;
-    }
-    if (final_mask & 0x02) {
-        return 1;
-    }
-    if (final_mask & 0x0c) {
-        return 2;
-    }
-    return 0;
-}
-
-static int
-short_transient_attack_win(int final_mask, int pos)
-{
-    if (0 <= pos) {
-        int win = pos / 3;
-        if (win < 0) {
-            win = 0;
-        }
-        if (win > 2) {
-            win = 2;
-        }
-        if (final_mask != 0) {
-            if (win == 0 && (final_mask & 0x01)) {
-                return 0;
-            }
-            if (win == 1 && (final_mask & 0x02)) {
-                return 1;
-            }
-            if (win == 2 && (final_mask & 0x0c)) {
-                return 2;
-            }
-        }
-    }
-    return short_transient_mask_attack_win(final_mask);
-}
-
 static void
 short_transient_window_noise(gr_info const *cod_info, FLOAT const *distort,
                              int attack_win, short_window_noise_t *res)

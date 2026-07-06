@@ -30,18 +30,6 @@
 
 #define hip_global_struct mpstr_tag
 
-#ifdef HAVE_MPG123
-/* libmpg123 */
-#include <mpg123.h>
-#ifndef MPG123_API_VERSION
-#error "Seems like you got the wrong mpg123 header. No MPG123_API_VERSION defined."
-#endif
-#if (MPG123_API_VERSION < 45)
-#error "Need mpg123 API >= 45."
-#endif
-
-#endif /* HAVE_MPG123 */
-
 /* for mpstr_tag */
 #include "mpglib/mpglib.h"
 
@@ -77,7 +65,8 @@
 
 #define OUTSIZE_CLIPPED   (4096*sizeof(short))
 
-hip_t hip_decode_init(void)
+static hip_t
+hip_decode_init_internal(int gapless)
 {
     hip_t hip = lame_calloc(hip_global_flags, 1);
     if(!hip)
@@ -85,35 +74,11 @@ hip_t hip_decode_init(void)
 #ifdef HAVE_MPG123
     mpg123_init();
     hip->mh = mpg123_new(NULL, NULL);
-    /* Could allocate on demand only. */
     memset(&hip->mi, 0, sizeof(hip->mi));
-    /* Since encoder delay/padding is communicated, I presume implicit
-       handling of gapless decoding is not expected. */
-    mpg123_param(hip->mh, MPG123_REMOVE_FLAGS, MPG123_GAPLESS, 0.);
-    /* We are going to feed buffers. */
-    if(mpg123_open_feed(hip->mh) != MPG123_OK)
     {
-        mpg123_delete(hip->mh);
-        free(hip);
-        hip = NULL;
+        int const flag = gapless ? MPG123_ADD_FLAGS : MPG123_REMOVE_FLAGS;
+        mpg123_param(hip->mh, flag, MPG123_GAPLESS, 0.);
     }
-#endif
-    return hip;
-}
-
-hip_t hip_decode_init_gapless(void)
-{
-    hip_t hip = lame_calloc(hip_global_flags, 1);
-    if(!hip)
-        return hip;
-#ifdef HAVE_MPG123
-    mpg123_init();
-    hip->mh = mpg123_new(NULL, NULL);
-    /* Could allocate on demand only. */
-    memset(&hip->mi, 0, sizeof(hip->mi));
-    /* Default on, but make it explicit. */
-    mpg123_param(hip->mh, MPG123_ADD_FLAGS, MPG123_GAPLESS, 0.);
-    /* We are going to feed buffers. */
     if(mpg123_open_feed(hip->mh) != MPG123_OK)
     {
         mpg123_delete(hip->mh);
@@ -121,10 +86,22 @@ hip_t hip_decode_init_gapless(void)
         hip = NULL;
     }
 #else
-    free(hip);
-    hip = NULL;
+    if (gapless) {
+        free(hip);
+        hip = NULL;
+    }
 #endif
     return hip;
+}
+
+hip_t hip_decode_init(void)
+{
+    return hip_decode_init_internal(0);
+}
+
+hip_t hip_decode_init_gapless(void)
+{
+    return hip_decode_init_internal(1);
 }
 
 

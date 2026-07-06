@@ -318,6 +318,15 @@ CRC_writeheader(lame_internal_flags const *gfc, char *header)
     header[5] = crc & 255;
 }
 
+/* if table_select == 14 (illegal), replace with 16 */
+static inline void
+fixup_table_select(lame_internal_flags * gfc, int *tbl)
+{
+    if (*tbl == 14)
+        *tbl = 16;
+    writeheader(gfc, *tbl, 5);
+}
+
 inline static void
 encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
 {
@@ -380,12 +389,8 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
                     writeheader(gfc, gi->block_type, 2);
                     writeheader(gfc, gi->mixed_block_flag, 1);
 
-                    if (gi->table_select[0] == 14)
-                        gi->table_select[0] = 16;
-                    writeheader(gfc, gi->table_select[0], 5);
-                    if (gi->table_select[1] == 14)
-                        gi->table_select[1] = 16;
-                    writeheader(gfc, gi->table_select[1], 5);
+                    fixup_table_select(gfc, &gi->table_select[0]);
+                    fixup_table_select(gfc, &gi->table_select[1]);
 
                     writeheader(gfc, gi->subblock_gain[0], 3);
                     writeheader(gfc, gi->subblock_gain[1], 3);
@@ -393,15 +398,9 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
                 }
                 else {
                     writeheader(gfc, 0, 1); /* window_switching_flag */
-                    if (gi->table_select[0] == 14)
-                        gi->table_select[0] = 16;
-                    writeheader(gfc, gi->table_select[0], 5);
-                    if (gi->table_select[1] == 14)
-                        gi->table_select[1] = 16;
-                    writeheader(gfc, gi->table_select[1], 5);
-                    if (gi->table_select[2] == 14)
-                        gi->table_select[2] = 16;
-                    writeheader(gfc, gi->table_select[2], 5);
+                    fixup_table_select(gfc, &gi->table_select[0]);
+                    fixup_table_select(gfc, &gi->table_select[1]);
+                    fixup_table_select(gfc, &gi->table_select[2]);
 
                     assert(0 <= gi->region0_count && gi->region0_count < 16);
                     assert(0 <= gi->region1_count && gi->region1_count < 8);
@@ -433,12 +432,8 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
                 writeheader(gfc, gi->block_type, 2);
                 writeheader(gfc, gi->mixed_block_flag, 1);
 
-                if (gi->table_select[0] == 14)
-                    gi->table_select[0] = 16;
-                writeheader(gfc, gi->table_select[0], 5);
-                if (gi->table_select[1] == 14)
-                    gi->table_select[1] = 16;
-                writeheader(gfc, gi->table_select[1], 5);
+                fixup_table_select(gfc, &gi->table_select[0]);
+                fixup_table_select(gfc, &gi->table_select[1]);
 
                 writeheader(gfc, gi->subblock_gain[0], 3);
                 writeheader(gfc, gi->subblock_gain[1], 3);
@@ -446,15 +441,9 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
             }
             else {
                 writeheader(gfc, 0, 1); /* window_switching_flag */
-                if (gi->table_select[0] == 14)
-                    gi->table_select[0] = 16;
-                writeheader(gfc, gi->table_select[0], 5);
-                if (gi->table_select[1] == 14)
-                    gi->table_select[1] = 16;
-                writeheader(gfc, gi->table_select[1], 5);
-                if (gi->table_select[2] == 14)
-                    gi->table_select[2] = 16;
-                writeheader(gfc, gi->table_select[2], 5);
+                fixup_table_select(gfc, &gi->table_select[0]);
+                fixup_table_select(gfc, &gi->table_select[1]);
+                fixup_table_select(gfc, &gi->table_select[2]);
 
                 assert(0 <= gi->region0_count && gi->region0_count < 16);
                 assert(0 <= gi->region1_count && gi->region1_count < 8);

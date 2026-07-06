@@ -147,4 +147,41 @@ int     lame_encode_mp3_frame(lame_internal_flags * gfc,
                               sample_t const *inbuf_l,
                               sample_t const *inbuf_r, unsigned char *mp3buf, int mp3buf_size);
 
+
+static inline int
+short_transient_attack_win(int final_mask, int pos)
+{
+    if (0 <= pos) {
+        int win = pos / 3;
+        if (win < 0) {
+            win = 0;
+        }
+        if (win > 2) {
+            win = 2;
+        }
+        if (final_mask != 0) {
+            if (win == 0 && (final_mask & 0x01)) {
+                return 0;
+            }
+            if (win == 1 && (final_mask & 0x02)) {
+                return 1;
+            }
+            if (win == 2 && (final_mask & 0x0c)) {
+                return 2;
+            }
+        }
+    }
+    if (final_mask & 0x01) {
+        return 0;
+    }
+    if (final_mask & 0x02) {
+        return 1;
+    }
+    if (final_mask & 0x0c) {
+        return 2;
+    }
+    return 0;
+}
+
+
 #endif /* LAME_ENCODER_H */
