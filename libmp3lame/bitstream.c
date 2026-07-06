@@ -178,7 +178,7 @@ putbits2(lame_internal_flags * gfc, int val, int j)
         assert(j < MAX_LENGTH); /* 32 too large on 32 bit machines */
         assert(bs->buf_bit_idx < MAX_LENGTH);
 
-        bs->buf[bs->buf_byte_idx] |= ((val >> j) << bs->buf_bit_idx);
+        bs->buf[bs->buf_byte_idx] |= ((unsigned int)val >> j) << bs->buf_bit_idx;
         bs->totbit += k;
     }
 }
@@ -209,7 +209,7 @@ putbits_noheaders(lame_internal_flags * gfc, int val, int j)
         assert(j < MAX_LENGTH); /* 32 too large on 32 bit machines */
         assert(bs->buf_bit_idx < MAX_LENGTH);
 
-        bs->buf[bs->buf_byte_idx] |= ((val >> j) << bs->buf_bit_idx);
+        bs->buf[bs->buf_byte_idx] |= ((unsigned int)val >> j) << bs->buf_bit_idx;
         bs->totbit += k;
     }
 }
@@ -277,7 +277,7 @@ writeheader(lame_internal_flags * gfc, int val, int j)
         j -= k;
         assert(j < MAX_LENGTH); /* >> 32  too large for 32 bit machines */
         esv->header[esv->h_ptr].buf[ptr >> 3]
-            |= ((val >> j)) << (8 - (ptr & 7) - k);
+            |= ((unsigned int)val >> j) << (8 - (ptr & 7) - k);
         ptr += k;
     }
     esv->header[esv->h_ptr].ptr = ptr;
@@ -288,15 +288,16 @@ static int
 CRC_update(int value, int crc)
 {
     int     i;
-    value <<= 8;
+    unsigned int val = (unsigned int)value << 8;
+    unsigned int crc_val = (unsigned int)crc;
     for (i = 0; i < 8; i++) {
-        value <<= 1;
-        crc <<= 1;
+        val <<= 1;
+        crc_val <<= 1;
 
-        if (((crc ^ value) & 0x10000))
-            crc ^= CRC16_POLYNOMIAL;
+        if (((crc_val ^ val) & 0x10000))
+            crc_val ^= CRC16_POLYNOMIAL;
     }
-    return crc;
+    return (int)crc_val;
 }
 
 
