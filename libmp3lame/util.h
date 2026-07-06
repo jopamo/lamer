@@ -274,9 +274,13 @@ fast_log2(ieee754_float32_t x)
          * current-call state separate from the delayed/published truth.
          */
         FLOAT   short_mask_score_rel_save[4];
+        FLOAT   short_mask_impulse_ratio_save[4];
+        FLOAT   short_mask_tail_ratio_save[4];
         unsigned char short_mask_final_mask_save[4];
         signed char short_mask_pos_save[4];
         FLOAT   short_mask_score_rel[2][4];
+        FLOAT   short_mask_impulse_ratio[2][4];
+        FLOAT   short_mask_tail_ratio[2][4];
         unsigned char short_mask_final_mask[2][4];
         signed char short_mask_pos[2][4];
     } PsyStateVar_t;

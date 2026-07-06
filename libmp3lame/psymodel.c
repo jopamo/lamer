@@ -792,6 +792,41 @@ attack_count4(int const attacks[4])
     return count;
 }
 
+static int
+transient_attack_win(int final_mask, int pos)
+{
+    if (0 <= pos) {
+        int win = pos / 3;
+        if (win < 0) {
+            win = 0;
+        }
+        if (win > 2) {
+            win = 2;
+        }
+        if (final_mask != 0) {
+            if (win == 0 && (final_mask & 0x01)) {
+                return 0;
+            }
+            if (win == 1 && (final_mask & 0x02)) {
+                return 1;
+            }
+            if (win == 2 && (final_mask & 0x0c)) {
+                return 2;
+            }
+        }
+    }
+    if (final_mask & 0x01) {
+        return 0;
+    }
+    if (final_mask & 0x02) {
+        return 1;
+    }
+    if (final_mask & 0x0c) {
+        return 2;
+    }
+    return 0;
+}
+
 static void
 save_uselong_policy_state(transient_info_t *trans, int const *uselongblock, int nch, int before_policy)
 {
@@ -1042,11 +1077,42 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
         if (trans != 0) {
             unsigned char const final = attack_mask4(ns_attacks[chn]);
             unsigned char raw = trans->raw_mask[chn];
+            int attack_win = -1;
+            FLOAT attack_energy = 0.0f;
+            FLOAT other_sum = 0.0f;
+            int other_count = 0;
+            FLOAT tail_energy = 0.0f;
 
             trans->final_mask[chn] = final;
             trans->suppressed_mask[chn] = raw & (unsigned char)~final;
             trans->count[chn] = attack_count4(ns_attacks[chn]);
             trans->last_attack[chn] = (signed char) psv->last_attacks[chn];
+
+            if (final != 0) {
+                attack_win = transient_attack_win(final, trans->pos[chn]);
+            }
+            if (attack_win >= 0 && attack_win < 3) {
+                attack_energy = en_short[attack_win + 1];
+            }
+            if (attack_win >= 0 && attack_energy > 0.0f) {
+                for (i = 0; i < 3; ++i) {
+                    if (i == attack_win) {
+                        continue;
+                    }
+                    other_sum += en_short[i + 1];
+                    ++other_count;
+                }
+                if (attack_win < 2) {
+                    tail_energy = en_short[attack_win + 2];
+                }
+                trans->impulse_ratio[chn] =
+                    attack_energy / Max(other_count > 0 ? other_sum / other_count : 0.0f, 1E-20f);
+                trans->tail_ratio[chn] = tail_energy / Max(attack_energy, 1E-20f);
+            }
+            else {
+                trans->impulse_ratio[chn] = 0.0f;
+                trans->tail_ratio[chn] = 1.0f;
+            }
         }
 
         /* experimental: restore suppressed real attacks */
@@ -1577,11 +1643,17 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
         for (chn = 0; chn < 4; ++chn) {
             psv->short_mask_score_rel[gr_out][chn] =
                 psv->short_mask_score_rel_save[chn];
+            psv->short_mask_impulse_ratio[gr_out][chn] =
+                psv->short_mask_impulse_ratio_save[chn];
+            psv->short_mask_tail_ratio[gr_out][chn] =
+                psv->short_mask_tail_ratio_save[chn];
             psv->short_mask_final_mask[gr_out][chn] =
                 psv->short_mask_final_mask_save[chn];
             psv->short_mask_pos[gr_out][chn] =
                 psv->short_mask_pos_save[chn];
             psv->short_mask_score_rel_save[chn] = trans.score_rel[chn];
+            psv->short_mask_impulse_ratio_save[chn] = trans.impulse_ratio[chn];
+            psv->short_mask_tail_ratio_save[chn] = trans.tail_ratio[chn];
             psv->short_mask_final_mask_save[chn] =
                 (unsigned char) trans.final_mask[chn];
             psv->short_mask_pos_save[chn] = trans.pos[chn];
@@ -1999,10 +2071,18 @@ psymodel_init(lame_global_flags const *gfp)
 
     memset(psv->short_mask_score_rel_save, 0,
            sizeof(psv->short_mask_score_rel_save));
+    memset(psv->short_mask_impulse_ratio_save, 0,
+           sizeof(psv->short_mask_impulse_ratio_save));
+    memset(psv->short_mask_tail_ratio_save, 0,
+           sizeof(psv->short_mask_tail_ratio_save));
     memset(psv->short_mask_final_mask_save, 0,
            sizeof(psv->short_mask_final_mask_save));
     memset(psv->short_mask_pos_save, 0, sizeof(psv->short_mask_pos_save));
     memset(psv->short_mask_score_rel, 0, sizeof(psv->short_mask_score_rel));
+    memset(psv->short_mask_impulse_ratio, 0,
+           sizeof(psv->short_mask_impulse_ratio));
+    memset(psv->short_mask_tail_ratio, 0,
+           sizeof(psv->short_mask_tail_ratio));
     memset(psv->short_mask_final_mask, 0,
            sizeof(psv->short_mask_final_mask));
     memset(psv->short_mask_pos, 0, sizeof(psv->short_mask_pos));

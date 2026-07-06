@@ -64,31 +64,37 @@ struct algo_s {
 #define SHORT_MASK_RELAX_BIT_SLOP 8
 #endif
 #ifndef SHORT_REDIST_PART23_FLOOR
-#define SHORT_REDIST_PART23_FLOOR 3500
+#define SHORT_REDIST_PART23_FLOOR 3400
 #endif
 #ifndef SHORT_REDIST_SCORE_FLOOR
 #define SHORT_REDIST_SCORE_FLOOR 2.0f
 #endif
+#ifndef SHORT_REDIST_IMPULSE_RATIO_FLOOR
+#define SHORT_REDIST_IMPULSE_RATIO_FLOOR 2.0f
+#endif
+#ifndef SHORT_REDIST_TAIL_RATIO_CEIL
+#define SHORT_REDIST_TAIL_RATIO_CEIL 0.85f
+#endif
 #ifndef SHORT_REDIST_ATTACK_MAX_NOISE_FLOOR
-#define SHORT_REDIST_ATTACK_MAX_NOISE_FLOOR 1.25f
+#define SHORT_REDIST_ATTACK_MAX_NOISE_FLOOR 1.20f
 #endif
 #ifndef SHORT_REDIST_ATTACK_TIGHTEN_DB
-#define SHORT_REDIST_ATTACK_TIGHTEN_DB (-2.0f)
+#define SHORT_REDIST_ATTACK_TIGHTEN_DB (-4.0f)
 #endif
 #ifndef SHORT_REDIST_ATTACK_TIGHTEN_FACTOR
-#define SHORT_REDIST_ATTACK_TIGHTEN_FACTOR 0.63095734448f
+#define SHORT_REDIST_ATTACK_TIGHTEN_FACTOR 0.39810717055f
 #endif
 #ifndef SHORT_REDIST_NONATTACK_RELAX_DB
-#define SHORT_REDIST_NONATTACK_RELAX_DB 3.0f
+#define SHORT_REDIST_NONATTACK_RELAX_DB 1.25f
 #endif
 #ifndef SHORT_REDIST_NONATTACK_RELAX_FACTOR
-#define SHORT_REDIST_NONATTACK_RELAX_FACTOR 1.99526231497f
+#define SHORT_REDIST_NONATTACK_RELAX_FACTOR 1.33352143216f
 #endif
 #ifndef SHORT_REDIST_HIGH_RELAX_DB
-#define SHORT_REDIST_HIGH_RELAX_DB 4.5f
+#define SHORT_REDIST_HIGH_RELAX_DB 2.0f
 #endif
 #ifndef SHORT_REDIST_HIGH_RELAX_FACTOR
-#define SHORT_REDIST_HIGH_RELAX_FACTOR 2.81838293126f
+#define SHORT_REDIST_HIGH_RELAX_FACTOR 1.58489319246f
 #endif
 #ifndef SHORT_REDIST_CATASTROPHE_DB
 #define SHORT_REDIST_CATASTROPHE_DB 6.0f
@@ -219,13 +225,13 @@ short_transient_build_redistributed_xmin(FLOAT *redis_xmin,
             continue;
         }
 
-        if (short_band >= 10) {
+        if (cod_info->window[sfb] != attack_win && short_band >= 11) {
             redis_xmin[sfb] *= SHORT_REDIST_HIGH_RELAX_FACTOR;
             (*relaxed_bands)++;
             continue;
         }
 
-        if (short_band <= 12) {
+        if (cod_info->window[sfb] != attack_win && short_band <= 12) {
             redis_xmin[sfb] *= SHORT_REDIST_NONATTACK_RELAX_FACTOR;
             (*relaxed_bands)++;
         }
@@ -1667,6 +1673,10 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
                 PsyStateVar_t const *psv = &gfc->sv_psy;
                 int const psy_ch = short_mask_relax_psy_ch(gfc, ch2);
                 FLOAT const score_rel = psv->short_mask_score_rel[gr2][psy_ch];
+                FLOAT const impulse_ratio =
+                    psv->short_mask_impulse_ratio[gr2][psy_ch];
+                FLOAT const tail_ratio =
+                    psv->short_mask_tail_ratio[gr2][psy_ch];
                 int const final_mask = psv->short_mask_final_mask[gr2][psy_ch];
                 int const pos = psv->short_mask_pos[gr2][psy_ch];
                 int const old_bits = cod_info->part2_3_length;
@@ -1694,6 +1704,14 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
                     candidate = 0;
                     candidate_reason = "weak_short";
                 }
+                else if (impulse_ratio < SHORT_REDIST_IMPULSE_RATIO_FLOOR) {
+                    candidate = 0;
+                    candidate_reason = "low_impulse";
+                }
+                else if (tail_ratio > SHORT_REDIST_TAIL_RATIO_CEIL) {
+                    candidate = 0;
+                    candidate_reason = "long_tail";
+                }
                 else if (old_bits < SHORT_REDIST_PART23_FLOOR) {
                     candidate = 0;
                     candidate_reason = "low_part23";
@@ -1708,11 +1726,17 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
                     fprintf(stderr,
                             "short_target_redist_candidate=%d frame=%d gr=%d ch=%d psy_ch=%d source=%s "
                             "short_target_redist_reject_reason=%s attack_win=%d score_rel=%.2f final_mask=0x%02x "
+                            "impulse_ratio=%.2f tail_ratio=%.2f attack_profile=attack_first "
+                            "attack_tighten_db=%.2f nonattack_relax_db=%.2f high_relax_db=%.2f "
                             "old_bits=%d old_attack_max_noise=%.2f old_attack_over_noise=%.2f "
                             "old_attack_over_count=%d old_global_max_noise=%.2f old_over_count=%d\n",
                             candidate, gfc->ov_enc.frame_number, gr2, ch2, psy_ch,
                             short_mask_relax_source_name(psy_ch), candidate_reason,
                             attack_win, (double) score_rel, final_mask,
+                            (double) impulse_ratio, (double) tail_ratio,
+                            (double) SHORT_REDIST_ATTACK_TIGHTEN_DB,
+                            (double) SHORT_REDIST_NONATTACK_RELAX_DB,
+                            (double) SHORT_REDIST_HIGH_RELAX_DB,
                             old_bits, (double) old_attack_noise.max_noise,
                             (double) old_attack_noise.over_noise,
                             old_attack_noise.over_count,
@@ -1783,12 +1807,16 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
                     if (new_bits > MAX_BITS_PER_CHANNEL) {
                         reject_reason = "bit_limit";
                     }
+                    else if (impulse_ratio < SHORT_REDIST_IMPULSE_RATIO_FLOOR
+                             || tail_ratio > SHORT_REDIST_TAIL_RATIO_CEIL) {
+                        reject_reason = "impulse_tail_gate";
+                    }
                     else if (!(new_attack_noise.over_noise <
                                old_attack_noise.over_noise)) {
                         reject_reason = "attack_over_noise";
                     }
                     else if (new_attack_noise.max_noise >
-                             old_attack_noise.max_noise + 0.25f) {
+                             old_attack_noise.max_noise + 0.20f) {
                         reject_reason = "attack_max_noise";
                     }
                     else if (noise_retry_orig.max_noise >
@@ -1842,6 +1870,8 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
                         fprintf(stderr,
                                 "short_target_redist_retry=1 short_target_redist_accept=%d frame=%d gr=%d ch=%d psy_ch=%d source=%s "
                                 "attack_win=%d old_bits=%d new_bits=%d "
+                                "impulse_ratio=%.2f tail_ratio=%.2f attack_profile=attack_first "
+                                "attack_tighten_db=%.2f nonattack_relax_db=%.2f high_relax_db=%.2f "
                                 "old_attack_max_noise=%.2f new_attack_max_noise=%.2f "
                                 "old_attack_over_noise=%.2f new_attack_over_noise=%.2f "
                                 "old_attack_over_count=%d new_attack_over_count=%d "
@@ -1852,6 +1882,10 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
                                 accept, gfc->ov_enc.frame_number, gr2, ch2, psy_ch,
                                 short_mask_relax_source_name(psy_ch), attack_win,
                                 old_bits, new_bits,
+                                (double) impulse_ratio, (double) tail_ratio,
+                                (double) SHORT_REDIST_ATTACK_TIGHTEN_DB,
+                                (double) SHORT_REDIST_NONATTACK_RELAX_DB,
+                                (double) SHORT_REDIST_HIGH_RELAX_DB,
                                 (double) old_attack_noise.max_noise,
                                 (double) new_attack_noise.max_noise,
                                 (double) old_attack_noise.over_noise,

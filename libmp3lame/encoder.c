@@ -502,13 +502,15 @@ lame_encode_mp3_frame(       /* Output */
                     int const out_ch = psy_ch & 0x01;
                     fprintf(stderr,
                             "transient_aligned: frame=%d gr=%d psy_ch=%d out_ch=%d source=%s "
-                            "blocktype=%d score_rel=%.2f score=%.0f pos=%d "
+                            "blocktype=%d score_rel=%.2f score=%.0f impulse_ratio=%.2f tail_ratio=%.2f pos=%d "
                             "raw_mask=0x%02x final_mask=0x%02x suppressed_mask=0x%02x count=%u "
                             "last_attack=%d uselong_before_policy=%u uselong_after_policy=%u policy=%s\n",
                             gfc->ov_enc.frame_number, gr, psy_ch, out_ch,
                             psy_ch < 2 ? "LR" : "MS",
                             gfc->pinfo->blocktype[gr][out_ch],
                             trans->score_rel[psy_ch], trans->score[psy_ch],
+                            trans->impulse_ratio[psy_ch],
+                            trans->tail_ratio[psy_ch],
                             (int) trans->pos[psy_ch],
                             (unsigned) trans->raw_mask[psy_ch],
                             (unsigned) trans->final_mask[psy_ch],

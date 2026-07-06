@@ -26,6 +26,8 @@
 typedef struct transient_info_s {
     double  score[4];
     double  score_rel[4];
+    double  impulse_ratio[4];
+    double  tail_ratio[4];
     unsigned char count[4];
     signed char pos[4];
     signed char last_attack[4];
