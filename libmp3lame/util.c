@@ -287,19 +287,6 @@ freq2bark(FLOAT freq)
     return 13.0 * atan(.76 * freq) + 3.5 * atan(freq * freq / (7.5 * 7.5));
 }
 
-#if 0
-extern FLOAT freq2cbw(FLOAT freq);
-
-/* see for example "Zwicker: Psychoakustik, 1982; ISBN 3-540-11401-7 */
-FLOAT
-freq2cbw(FLOAT freq)
-{
-    /* input: freq in hz  output: critical band width */
-    freq = freq * 0.001;
-    return 25 + 75 * pow(1 + 1.4 * (freq * freq), 0.69);
-}
-
-#endif
 
 
 
@@ -877,19 +864,6 @@ disable_FPE(void)
 #if defined(ABORTFP)
 #if defined(_MSC_VER)
     {
-#if 0
-        /* rh 061207
-           the following fix seems to be a workaround for a problem in the
-           parent process calling LAME. It would be better to fix the broken
-           application => code disabled.
-         */
-
-        /* set affinity to a single CPU.  Fix for EAC/lame on SMP systems from
-           "Todd Richmond" <todd.richmond@openwave.com> */
-        SYSTEM_INFO si;
-        GetSystemInfo(&si);
-        SetProcessAffinityMask(GetCurrentProcess(), si.dwActiveProcessorMask);
-#endif
 #include <float.h>
         unsigned int mask;
         mask = _controlfp(0, 0);

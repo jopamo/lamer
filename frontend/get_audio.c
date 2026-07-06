@@ -577,17 +577,8 @@ setSkipStartAndEnd(lame_t gfp, int enc_delay, int enc_padding)
     if (global_decoder.mp3_delay_set)
         skip_start = global_decoder.mp3_delay;
 
-#if 0
-    /* We should ask mpg123 for the delay, but we know it is 529 samples and
-       will not change unless we enable gapless mode. Also, global.hip is not
-       always the correct handle, so avoid this for now. */
-    /* Will use it for layer III only, mpg123 does not deal with layer I and II
-       gapless stuff (yet?) */
-    mpg123_getstate(global.hip->mh, MPG123_DEC_DELAY, &dec_delay, NULL);
-#else
     if(dec_delay < 0)
         dec_delay = 528 + 1; /* Same value as above, actually. */
-#endif
 
     switch (global_reader.input_format) {
     case sf_mp123:
@@ -1233,16 +1224,6 @@ open_snd_file(lame_t gfp, char const *inPath)
         return 0;
     }
     global. pcmbitwidth = 32;
-#if 0
-    if (lame_get_num_samples(gfp) == MAX_U_32_NUM) {
-        /* try to figure out num_samples */
-        double const flen = lame_get_file_size(lpszFileName);
-        if (flen >= 0) {
-            /* try file size, assume 2 bytes per sample */
-            lame_set_num_samples(gfp, flen / (2 * lame_get_num_channels(gfp)));
-        }
-    }
-#endif
     return gs_pSndFileIn;
 }
 
@@ -1879,14 +1860,7 @@ open_wave_file(lame_t gfp, char const *inPath, int *enc_delay, int *enc_padding)
         }
     }
 
-    if (global_reader.input_format == sf_ogg) {
-        if (global_ui_config.silent < 10) {
-            error_printf("sorry, vorbis support in LAME is deprecated.\n");
-        }
-        close_input_file(musicin);
-        return 0;
-    }
-    else if (global_reader.input_format == sf_raw) {
+    if (global_reader.input_format == sf_raw) {
         /* assume raw PCM */
         if (global_ui_config.silent < 9) {
             console_printf("Assuming raw pcm input file");

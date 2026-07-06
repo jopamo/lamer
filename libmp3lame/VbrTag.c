@@ -291,41 +291,6 @@ setLameTagFrameHeader(lame_internal_flags const *gfc, unsigned char *buffer)
     }
 }
 
-#if 0
-static int CheckVbrTag(unsigned char *buf);
-
-/*-------------------------------------------------------------*/
-/* Same as GetVbrTag below, but only checks for the Xing tag.
-   requires buf to contain only 40 bytes */
-/*-------------------------------------------------------------*/
-int
-CheckVbrTag(unsigned char *buf)
-{
-    int     h_id, h_mode;
-
-    /* get selected MPEG header data */
-    h_id = (buf[1] >> 3) & 1;
-    h_mode = (buf[3] >> 6) & 3;
-
-    /*  determine offset of header */
-    if (h_id) {
-        /* mpeg1 */
-        if (h_mode != 3)
-            buf += (32 + 4);
-        else
-            buf += (17 + 4);
-    }
-    else {
-        /* mpeg2 */
-        if (h_mode != 3)
-            buf += (17 + 4);
-        else
-            buf += (9 + 4);
-    }
-
-    return IsVbrTag(buf);
-}
-#endif
 
 int
 GetVbrTag(VBRTAGDATA * pTagData, const unsigned char *buf)

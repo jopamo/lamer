@@ -842,18 +842,6 @@ compute_flushbits(const lame_internal_flags * gfc, int *total_bytes_output)
 
 
     if (flushbits < 0) {
-#if 0
-        /* if flushbits < 0, this would mean that the buffer looks like:
-         * (data...)  last_header  (data...)  (extra data that should not be here...)
-         */
-        DEBUGF(gfc, "last header write_timing = %i \n", esv->header[last_ptr].write_timing);
-        DEBUGF(gfc, "first header write_timing = %i \n", esv->header[first_ptr].write_timing);
-        DEBUGF(gfc, "bs.totbit:                 %i \n", gfc->bs.totbit);
-        DEBUGF(gfc, "first_ptr, last_ptr        %i %i \n", first_ptr, last_ptr);
-        DEBUGF(gfc, "remaining_headers =        %i \n", remaining_headers);
-        DEBUGF(gfc, "bitsperframe:              %i \n", bitsPerFrame);
-        DEBUGF(gfc, "sidelen:                   %i \n", cfg->sideinfo_len);
-#endif
         ERRORF(gfc, "strange error flushing buffer ... \n");
     }
     return flushbits;

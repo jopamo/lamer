@@ -309,33 +309,6 @@ lame_get_decode_only(const lame_global_flags * gfp)
     return 0;
 }
 
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-/* 1=encode a Vorbis .ogg file.  default=0 */
-/* DEPRECATED */
-int CDECL lame_set_ogg(lame_global_flags *, int);
-int CDECL lame_get_ogg(const lame_global_flags *);
-#else
-#endif
-
-/* encode a Vorbis .ogg file */
-/* DEPRECATED */
-int
-lame_set_ogg(lame_global_flags * gfp, int ogg)
-{
-    (void) gfp;
-    (void) ogg;
-    return -1;
-}
-
-int
-lame_get_ogg(const lame_global_flags * gfp)
-{
-    (void) gfp;
-    return 0;
-}
-
-
 /*
  * Internal algorithm selection.
  * True quality is determined by the bitrate but this variable will effect
@@ -397,45 +370,6 @@ lame_get_mode(const lame_global_flags * gfp)
     }
     return NOT_SET;
 }
-
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-/*
-  mode_automs.  Use a M/S mode with a switching threshold based on
-  compression ratio
-  DEPRECATED
-*/
-int CDECL lame_set_mode_automs(lame_global_flags *, int);
-int CDECL lame_get_mode_automs(const lame_global_flags *);
-#else
-#endif
-
-/* Us a M/S mode with a switching threshold based on compression ratio */
-/* DEPRECATED */
-int
-lame_set_mode_automs(lame_global_flags * gfp, int mode_automs)
-{
-    if (is_lame_global_flags_valid(gfp)) {
-        /* default = 0 (disabled) */
-
-        /* enforce disable/enable meaning, if we need more than two values
-           we need to switch to an enum to have an apropriate representation
-           of the possible meanings of the value */
-        if (0 > mode_automs || 1 < mode_automs)
-            return -1;
-        lame_set_mode(gfp, JOINT_STEREO);
-        return 0;
-    }
-    return -1;
-}
-
-int
-lame_get_mode_automs(const lame_global_flags * gfp)
-{
-    (void) gfp;
-    return 1;
-}
-
 
 /*
  * Force M/S for all frames.  For testing only.
@@ -562,72 +496,6 @@ lame_get_decode_on_the_fly(const lame_global_flags * gfp)
     }
     return 0;
 }
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-/* DEPRECATED: now does the same as lame_set_findReplayGain()
-   default = 0 (disabled) */
-int CDECL lame_set_ReplayGain_input(lame_global_flags *, int);
-int CDECL lame_get_ReplayGain_input(const lame_global_flags *);
-
-/* DEPRECATED: now does the same as
-   lame_set_decode_on_the_fly() && lame_set_findReplayGain()
-   default = 0 (disabled) */
-int CDECL lame_set_ReplayGain_decode(lame_global_flags *, int);
-int CDECL lame_get_ReplayGain_decode(const lame_global_flags *);
-
-/* DEPRECATED: now does the same as lame_set_decode_on_the_fly()
-   default = 0 (disabled) */
-int CDECL lame_set_findPeakSample(lame_global_flags *, int);
-int CDECL lame_get_findPeakSample(const lame_global_flags *);
-#else
-#endif
-
-/* DEPRECATED. same as lame_set_decode_on_the_fly() */
-int
-lame_set_findPeakSample(lame_global_flags * gfp, int arg)
-{
-    return lame_set_decode_on_the_fly(gfp, arg);
-}
-
-int
-lame_get_findPeakSample(const lame_global_flags * gfp)
-{
-    return lame_get_decode_on_the_fly(gfp);
-}
-
-/* DEPRECATED. same as lame_set_findReplayGain() */
-int
-lame_set_ReplayGain_input(lame_global_flags * gfp, int arg)
-{
-    return lame_set_findReplayGain(gfp, arg);
-}
-
-int
-lame_get_ReplayGain_input(const lame_global_flags * gfp)
-{
-    return lame_get_findReplayGain(gfp);
-}
-
-/* DEPRECATED. same as lame_set_decode_on_the_fly() &&
-   lame_set_findReplayGain() */
-int
-lame_set_ReplayGain_decode(lame_global_flags * gfp, int arg)
-{
-    if (lame_set_decode_on_the_fly(gfp, arg) < 0 || lame_set_findReplayGain(gfp, arg) < 0)
-        return -1;
-    else
-        return 0;
-}
-
-int
-lame_get_ReplayGain_decode(const lame_global_flags * gfp)
-{
-    if (lame_get_decode_on_the_fly(gfp) > 0 && lame_get_findReplayGain(gfp) > 0)
-        return 1;
-    else
-        return 0;
-}
-
 
 /* set and get some gapless encoding flags */
 
@@ -845,36 +713,6 @@ lame_get_error_protection(const lame_global_flags * gfp)
     }
     return 0;
 }
-
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-/* padding_type. 0=pad no frames  1=pad all frames 2=adjust padding(default) */
-int CDECL lame_set_padding_type(lame_global_flags *, Padding_type);
-Padding_type CDECL lame_get_padding_type(const lame_global_flags *);
-#else
-#endif
-
-/*
- * padding_type.
- *  PAD_NO     = pad no frames
- *  PAD_ALL    = pad all frames
- *  PAD_ADJUST = adjust padding
- */
-int
-lame_set_padding_type(lame_global_flags * gfp, Padding_type padding_type)
-{
-    (void) gfp;
-    (void) padding_type;
-    return 0;
-}
-
-Padding_type
-lame_get_padding_type(const lame_global_flags * gfp)
-{
-    (void) gfp;
-    return PAD_ADJUST;
-}
-
 
 /* MP3 'private extension' bit. Meaningless. */
 int
@@ -1580,31 +1418,6 @@ lame_get_athaa_type(const lame_global_flags * gfp)
     return 0;
 }
 
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-int CDECL lame_set_athaa_loudapprox(lame_global_flags * gfp, int athaa_loudapprox);
-int CDECL lame_get_athaa_loudapprox(const lame_global_flags * gfp);
-#else
-#endif
-
-/* Select the loudness approximation used by the ATH adaptive auto-leveling. */
-int
-lame_set_athaa_loudapprox(lame_global_flags * gfp, int athaa_loudapprox)
-{
-    (void) gfp;
-    (void) athaa_loudapprox;
-    return 0;
-}
-
-int
-lame_get_athaa_loudapprox(const lame_global_flags * gfp)
-{
-    (void) gfp;
-    /* obsolete, the type known under number 2 is the only survival */
-    return 2;
-}
-
-
 /* Adjust (in dB) the point below which adaptive ATH level adjustment occurs. */
 int
 lame_set_athaa_sensitivity(lame_global_flags * gfp, float athaa_sensitivity)
@@ -1624,28 +1437,6 @@ lame_get_athaa_sensitivity(const lame_global_flags * gfp)
     }
     return 0;
 }
-
-
-/* Predictability limit (ISO tonality formula) */
-int     lame_set_cwlimit(lame_global_flags * gfp, int cwlimit);
-int     lame_get_cwlimit(const lame_global_flags * gfp);
-
-int
-lame_set_cwlimit(lame_global_flags * gfp, int cwlimit)
-{
-    (void) gfp;
-    (void) cwlimit;
-    return 0;
-}
-
-int
-lame_get_cwlimit(const lame_global_flags * gfp)
-{
-    (void) gfp;
-    return 0;
-}
-
-
 
 /*
  * Allow blocktypes to differ between channels.
@@ -2279,20 +2070,6 @@ lame_get_msfix(const lame_global_flags * gfp)
     }
     return 0;
 }
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-int CDECL lame_set_preset_expopts(lame_global_flags *, int);
-#else
-#endif
-
-int
-lame_set_preset_expopts(lame_global_flags * gfp, int preset_expopts)
-{
-    (void) gfp;
-    (void) preset_expopts;
-    return 0;
-}
-
 
 int
 lame_set_preset_notune(lame_global_flags * gfp, int preset_notune)

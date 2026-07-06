@@ -293,39 +293,3 @@ static const uint16_t crc16_lookup[8][256] = {
     0xE20E, 0x2ECF, 0x3B8F, 0xF74E, 0x110F, 0xDDCE, 0xC88E, 0x044F }
 };
 
-#if 0
-static uint16_t
-reflect_crc(uint16_t ref, char ch)
-{
-    int i;
-    uint16_t value;
-    value = 0;
-
-    for (i = 1; i < (ch + 1); ++i) {
-        if (ref & 1) value |= 1 << (ch - i);
-        ref >>= 1;
-    }
-    return value;
-}
-
-static void
-init_crc()
-{
-    int i, j;
-    uint16_t polynomial, crc;
-    polynomial = 0x8005;
-
-    for (i = 0; i <= 0xFF; ++i) {
-        crc = reflect_crc(i, 8) << 8;
-
-        for (j = 0; j < 8; ++j)
-            crc = (crc << 1) ^ (crc & (1 << 15) ? polynomial : 0);
-
-        crc16_lookup[0][i] = reflect_crc(crc, 16);
-    }
-
-    for (i = 0; i <= 0xFF; ++i)
-        for (j = 1; j < 8; ++j)
-            crc16_lookup[j][i] = crc16_lookup[0][crc16_lookup[j - 1][i] & 0xFF] ^ (crc16_lookup[j - 1][i] >> 8);
-}
-#endif

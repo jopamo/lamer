@@ -186,55 +186,6 @@ currCharCodeSize(void)
     return n;
 }
 
-#if 0
-static
-char* fromLatin1( char* src )
-{
-    char* dst = 0;
-    if (src != 0) {
-        size_t const l = strlen(src);
-        size_t const n = l*4;
-        dst = calloc(n+4, 4);
-        if (dst != 0) {
-            char* cur_code = currentCharacterEncoding();
-            iconv_t xiconv = iconv_open(cur_code, "ISO_8859-1");
-            if (xiconv != (iconv_t)-1) {
-                char* i_ptr = src;
-                char* o_ptr = dst;
-                size_t srcln = l;
-                size_t avail = n;                
-                iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
-                iconv_close(xiconv);
-            }
-        }
-    }
-    return dst;
-}
-
-static
-char* fromUtf16( char* src )
-{
-    char* dst = 0;
-    if (src != 0) {
-        size_t const l = strlenMultiByte(src, 2);
-        size_t const n = l*4;
-        dst = calloc(n+4, 4);
-        if (dst != 0) {
-            char* cur_code = currentCharacterEncoding();
-            iconv_t xiconv = iconv_open(cur_code, "UTF-16LE");
-            if (xiconv != (iconv_t)-1) {
-                char* i_ptr = (char*)src;
-                char* o_ptr = dst;
-                size_t srcln = l*2;
-                size_t avail = n;                
-                iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
-                iconv_close(xiconv);
-            }
-        }
-    }
-    return dst;
-}
-#endif
 
 static
 char* toLatin1( char* src )
@@ -348,39 +299,37 @@ static int getIntValue(char const* token, char const* arg, int* ptr)
 
 #ifdef ID3TAGS_EXTENDED
 static int
-set_id3v2tag(lame_global_flags* gfp, TextEncoding enc, int type, unsigned short const* str)
+set_id3v2tag_utf8(lame_global_flags* gfp, int type, char const* str)
 {
-    switch (enc)
+    switch (type)
     {
-        case TENC_UTF8:
-            switch (type)
-            {
-                case 'a': return id3tag_set_textinfo_utf8(gfp, "TPE1", str);
-                case 't': return id3tag_set_textinfo_utf8(gfp, "TIT2", str);
-                case 'l': return id3tag_set_textinfo_utf8(gfp, "TALB", str);
-                case 'g': return id3tag_set_textinfo_utf8(gfp, "TCON", str);
-                case 'c': return id3tag_set_comment_ucs2(gfp, 0, 0, str);
-                case 'n': return id3tag_set_textinfo_utf8(gfp, "TRCK", str);
-                case 'y': return id3tag_set_textinfo_utf8(gfp, "TYER", str);
-                case 'v': return id3tag_set_fieldvalue_ucs2(gfp, str);
-            }
-            ;;
-        case TENC_UTF16:
-            switch (type)
-            {
-                case 'a': return id3tag_set_textinfo_utf16(gfp, "TPE1", str);
-                case 't': return id3tag_set_textinfo_utf16(gfp, "TIT2", str);
-                case 'l': return id3tag_set_textinfo_utf16(gfp, "TALB", str);
-                case 'g': return id3tag_set_textinfo_utf16(gfp, "TCON", str);
-                case 'c': return id3tag_set_comment_utf16(gfp, 0, 0, str);
-                case 'n': return id3tag_set_textinfo_utf16(gfp, "TRCK", str);
-                case 'y': return id3tag_set_textinfo_utf16(gfp, "TYER", str);
-                case 'v': return id3tag_set_fieldvalue_utf16(gfp, str);
-            }
-            ;;
-        default:
-            return -3;
+        case 'a': return id3tag_set_textinfo_utf8(gfp, "TPE1", str);
+        case 't': return id3tag_set_textinfo_utf8(gfp, "TIT2", str);
+        case 'l': return id3tag_set_textinfo_utf8(gfp, "TALB", str);
+        case 'g': return id3tag_set_textinfo_utf8(gfp, "TCON", str);
+        case 'c': return id3tag_set_comment_utf8(gfp, 0, 0, str);
+        case 'n': return id3tag_set_textinfo_utf8(gfp, "TRCK", str);
+        case 'y': return id3tag_set_textinfo_utf8(gfp, "TYER", str);
+        case 'v': return id3tag_set_fieldvalue_utf8(gfp, str);
     }
+    return -3;
+}
+
+static int
+set_id3v2tag_utf16(lame_global_flags* gfp, int type, unsigned short const* str)
+{
+    switch (type)
+    {
+        case 'a': return id3tag_set_textinfo_utf16(gfp, "TPE1", str);
+        case 't': return id3tag_set_textinfo_utf16(gfp, "TIT2", str);
+        case 'l': return id3tag_set_textinfo_utf16(gfp, "TALB", str);
+        case 'g': return id3tag_set_textinfo_utf16(gfp, "TCON", str);
+        case 'c': return id3tag_set_comment_utf16(gfp, 0, 0, str);
+        case 'n': return id3tag_set_textinfo_utf16(gfp, "TRCK", str);
+        case 'y': return id3tag_set_textinfo_utf16(gfp, "TYER", str);
+        case 'v': return id3tag_set_fieldvalue_utf16(gfp, str);
+    }
+    return -3;
 }
 #endif
 
@@ -425,8 +374,8 @@ id3_tag(lame_global_flags* gfp, int type, TextEncoding enc, char* str)
         default:
 #ifdef ID3TAGS_EXTENDED
         case TENC_LATIN1: result = set_id3tag(gfp, type, x);   break;
-        case TENC_UTF16:  result = set_id3v2tag(gfp, enc, type, x); break;
-        case TENC_UTF8:   result = set_id3v2tag(gfp, enc, type, x); break;
+        case TENC_UTF16:  result = set_id3v2tag_utf16(gfp, type, (unsigned short const*) x); break;
+        case TENC_UTF8:   result = set_id3v2tag_utf8(gfp, type, (char const*) x); break;
 #else
         case TENC_RAW:    result = set_id3tag(gfp, type, x);   break;
 #endif
@@ -678,8 +627,6 @@ filename_to_type(const char *FileName)
         return sf_aiff;
     if (0 == local_strcasecmp(FileName, ".raw"))
         return sf_raw;
-    if (0 == local_strcasecmp(FileName, ".ogg"))
-        return sf_ogg;
     return sf_unknown;
 }
 
@@ -866,7 +813,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     lame_set_VBR(gfp, vbr_rh);
 
                 T_ELIF("vbr-new")
-                    lame_set_VBR(gfp, vbr_mt);
+                    lame_set_VBR(gfp, vbr_mtrh);
 
                 T_ELIF("vbr-mtrh")
                     lame_set_VBR(gfp, vbr_mtrh);
@@ -919,10 +866,6 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 
                 T_ELIF("mp3input")
                     global_reader.input_format = sf_mp3;
-
-                T_ELIF("ogginput")
-                    error_printf("sorry, vorbis support in LAME is deprecated.\n");
-                return -1;
 
                 T_ELIF("decode")
                     (void) lame_set_decode_only(gfp, 1);
@@ -1335,7 +1278,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     if (argUsed)
                         lame_set_athaa_sensitivity(gfp, (float) double_value);
 
-                /* ---------------- lots of dead switches ---------------- */
+                /* ---------------- internal tuning switches ---------------- */
 
                 T_ELIF_INTERNAL("noshort")
                     (void) lame_set_no_short_blocks(gfp, 1);
@@ -1635,11 +1578,6 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         autoconvert = 1;
                         (void) lame_set_mode(gfp, MONO);
                         break;
-                    case 'd':   /*(void) lame_set_allow_diff_short( gfp, 1 ); */
-                    case 'k':   /*lame_set_lowpassfreq(gfp, -1);
-                                  lame_set_highpassfreq(gfp, -1); */
-                        error_printf("WARNING: -%c is obsolete.\n", c);
-                        break;
                     case 'S':
                         global_ui_config.silent = 5;
                         break;
@@ -1675,24 +1613,6 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                             {
                                 lame_set_experimentalZ(gfp, n);
                             }
-                        }
-                        break;
-                    case 'e':
-                        argUsed = 1;
-
-                        switch (*arg) {
-                        case 'n':
-                            lame_set_emphasis(gfp, 0);
-                            break;
-                        case '5':
-                            lame_set_emphasis(gfp, 1);
-                            break;
-                        case 'c':
-                            lame_set_emphasis(gfp, 3);
-                            break;
-                        default:
-                            error_printf("%s: -e emp must be n/5/c not %s\n", ProgramName, arg);
-                            return -1;
                         }
                         break;
                     case 'c':

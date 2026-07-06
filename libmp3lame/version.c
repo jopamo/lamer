@@ -203,7 +203,7 @@ get_lame_url(void)
 void
 get_lame_version_numerical(lame_version_t * lvp)
 {
-    static /*@observer@ */ const char *const features = ""; /* obsolete */
+    static /*@observer@ */ const char *const features = "";
 
     /* generic version */
     lvp->major = LAME_MAJOR_VERSION;

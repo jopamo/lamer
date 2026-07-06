@@ -454,14 +454,5 @@ GetTitleGain(replaygain_t * rgData)
     return retval;
 }
 
-#if 0
-static Float_t GetAlbumGain(replaygain_t const* rgData);
-
-Float_t
-GetAlbumGain(replaygain_t const* rgData)
-{
-    return analyzeResult(rgData->B, sizeof(rgData->B) / sizeof(*(rgData->B)));
-}
-#endif
 
 /* end of gain_analysis.c */

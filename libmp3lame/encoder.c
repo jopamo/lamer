@@ -528,7 +528,6 @@ lame_encode_mp3_frame(       /* Output */
     case vbr_rh:
         VBR_old_iteration_loop(gfc, (const FLOAT (*)[2])pe_use, ms_ener_ratio, masking);
         break;
-    case vbr_mt:
     case vbr_mtrh:
         VBR_new_iteration_loop(gfc, (const FLOAT (*)[2])pe_use, ms_ener_ratio, masking);
         break;

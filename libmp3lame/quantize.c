@@ -340,7 +340,7 @@ init_outer_loop(lame_internal_flags const *gfc, gr_info * const cod_info)
      */
     memset(cod_info->scalefac, 0, sizeof(cod_info->scalefac));
 
-    if (cfg->vbr != vbr_mt && cfg->vbr != vbr_mtrh && cfg->vbr != vbr_abr && cfg->vbr != vbr_off) {
+    if (cfg->vbr != vbr_mtrh && cfg->vbr != vbr_abr && cfg->vbr != vbr_off) {
         psfb21_analogsilence(gfc, cod_info);
     }
 }
@@ -1185,7 +1185,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
     assert((cod_info->global_gain + cod_info->scalefac_scale) <= 255);
     /*  finish up
      */
-    if (cfg->vbr == vbr_rh || cfg->vbr == vbr_mtrh || cfg->vbr == vbr_mt)
+    if (cfg->vbr == vbr_rh || cfg->vbr == vbr_mtrh)
         /* restore for reuse on next try */
         memcpy(xrpow, save_xrpow, sizeof(FLOAT) * 576);
     /*  do the 'substep shaping'
@@ -1719,14 +1719,6 @@ VBR_new_iteration_loop(lame_internal_flags * gfc, const FLOAT pe[2][2],
         }
     }
     else {
-#if 0
-        static int mmm = 0;
-        int     fff = getFramesize_kbps(gfc, used_bits);
-        int     hhh = getFramesize_kbps(gfc, MAX_BITS_PER_GRANULE * cfg->mode_gr);
-        if (mmm < fff)
-            mmm = fff;
-        printf("demand=%3d kbps  max=%3d kbps   limit=%3d kbps\n", fff, mmm, hhh);
-#endif
         eov->bitrate_index = 0;
     }
     if (used_bits <= frameBits[eov->bitrate_index]) {

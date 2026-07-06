@@ -240,7 +240,6 @@ encoder_progress_begin( lame_global_flags const* gf
                                lame_get_VBR_quality(gf),
                                lame_get_quality(gf));
                 break;
-            case vbr_mt:
             case vbr_mtrh:
                 console_printf("%s MPEG-%u%s Layer III VBR(q=%g)\n",
                                mode_names[lame_get_force_ms(gf)][lame_get_mode(gf)],

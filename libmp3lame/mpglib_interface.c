@@ -56,62 +56,6 @@
 
 #include "util.h"
 
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-/*
- * OBSOLETE:
- * - kept to let it link
- * - forward declaration to silence compiler
- */
-int CDECL lame_decode_init(void);
-int CDECL lame_decode(
-        unsigned char *  mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[] );
-int CDECL lame_decode_headers(
-        unsigned char*   mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[],
-        mp3data_struct*  mp3data );
-int CDECL lame_decode1(
-        unsigned char*  mp3buf,
-        int             len,
-        short           pcm_l[],
-        short           pcm_r[] );
-int CDECL lame_decode1_headers(
-        unsigned char*   mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[],
-        mp3data_struct*  mp3data );
-int CDECL lame_decode1_headersB(
-        unsigned char*   mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[],
-        mp3data_struct*  mp3data,
-        int              *enc_delay,
-        int              *enc_padding );
-int CDECL lame_decode_exit(void);
-#endif
-
-int
-lame_decode_exit(void)
-{
-    return 0;
-}
-
-
-int
-lame_decode_init(void)
-{
-    return 0;
-}
-
-
-
-
 /* copy mono samples */
 #define COPY_MONO(DST_TYPE, SRC_TYPE)                                                           \
     DST_TYPE *pcm_l = (DST_TYPE *)pcm_l_raw;                                                    \
@@ -132,66 +76,6 @@ lame_decode_init(void)
 
 
 #define OUTSIZE_CLIPPED   (4096*sizeof(short))
-
-int
-lame_decode1_headersB(unsigned char *buffer,
-                      int len,
-                      short pcm_l[], short pcm_r[], mp3data_struct * mp3data,
-                      int *enc_delay, int *enc_padding)
-{
-    return -1;
-}
-
-
-
-
-
-/*
- * For lame_decode:  return code
- *  -1     error
- *   0     ok, but need more data before outputing any samples
- *   n     number of samples output.  Will be at most one frame of
- *         MPEG data.  
- */
-
-int
-lame_decode1_headers(unsigned char *buffer,
-                     int len, short pcm_l[], short pcm_r[], mp3data_struct * mp3data)
-{
-    return -1;
-}
-
-
-int
-lame_decode1(unsigned char *buffer, int len, short pcm_l[], short pcm_r[])
-{
-    return -1;
-}
-
-
-/*
- * For lame_decode:  return code
- *  -1     error
- *   0     ok, but need more data before outputing any samples
- *   n     number of samples output.  a multiple of 576 or 1152 depending on MP3 file.
- */
-
-int
-lame_decode_headers(unsigned char *buffer,
-                    int len, short pcm_l[], short pcm_r[], mp3data_struct * mp3data)
-{
-    return -1;
-}
-
-
-int
-lame_decode(unsigned char *buffer, int len, short pcm_l[], short pcm_r[])
-{
-    return -1;
-}
-
-
-
 
 hip_t hip_decode_init(void)
 {
@@ -250,7 +134,7 @@ int hip_decode_exit(hip_t hip)
     if(hip) {
 #ifdef HAVE_MPG123
         mpg123_delete(hip->mh); /* Closes implicitly. */
-        /* No mpg123_exit(), will be deprecated anyway. */
+        /* No mpg123_exit(). */
 #endif
         free(hip);
     }

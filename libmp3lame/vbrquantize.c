@@ -360,18 +360,6 @@ block_sf(algo_t * that, const FLOAT l3_xmin[SFBMAX], int vbrsf[SFBMAX], int vbrs
         if (sfb < psymax && w > 2) { /* mpeg2.5 at 8 kHz doesn't use all scalefactors, unused have width 2 */
             if (energy_above_cutoff[sfb]) {
                 m2 = that->find(&xr[j], &xr34_orig[j], l3_xmin[sfb], l, m1);
-#if 0
-                if (0) {
-                    /** Robert Hegemann 2007-09-29:
-                     *  It seems here is some more potential for speed improvements.
-                     *  Current find method does 11-18 quantization calculations.
-                     *  Using a "good guess" may help to reduce this amount.
-                     */
-                    uint8_t guess = calc_scalefac(l3_xmin[sfb], l);
-                    DEBUGF(that->gfc, "sfb=%3d guess=%3d found=%3d diff=%3d\n", sfb, guess, m2,
-                           m2 - guess);
-                }
-#endif
                 if (maxsf < m2) {
                     maxsf = m2;
                 }
@@ -1155,9 +1143,6 @@ outOfBitsStrategy(algo_t const* that, const int sfwork[SFBMAX], const int vbrsfm
 
 static int
 reduce_bit_usage(lame_internal_flags * gfc, int gr, int ch
-#if 0
-                 , const FLOAT xr34orig[576], const FLOAT l3_xmin[SFBMAX], int maxbits
-#endif
     )
 {
     SessionConfig_t const *const cfg = &gfc->cfg;

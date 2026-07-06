@@ -39,11 +39,8 @@ typedef void (*lame_report_function)(const char *format, va_list ap);
 
 #define CDECL
 
-#define DEPRECATED_OR_OBSOLETE_CODE_REMOVED 1
-
 typedef enum vbr_mode_e {
   vbr_off=0,
-  vbr_mt,               /* obsolete, same as vbr_mtrh */
   vbr_rh,
   vbr_abr,
   vbr_mtrh,
@@ -161,11 +158,6 @@ typedef lame_global_flags *lame_t;
  * API calls.
  */
 lame_global_flags * CDECL lame_init(void);
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-#else
-/* obsolete version */
-int CDECL lame_init_old(lame_global_flags *);
-#endif
 
 /*
  * OPTIONAL:
@@ -235,17 +227,9 @@ int CDECL lame_get_analysis(const lame_global_flags *);
 int CDECL lame_set_bWriteVbrTag(lame_global_flags *, int);
 int CDECL lame_get_bWriteVbrTag(const lame_global_flags *);
 
-/* 1=decode only.  use lame/mpglib to convert mp3/ogg to wav.  default=0 */
+/* 1=decode only.  use lame/mpglib to convert mp3 to wav.  default=0 */
 int CDECL lame_set_decode_only(lame_global_flags *, int);
 int CDECL lame_get_decode_only(const lame_global_flags *);
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-#else
-/* 1=encode a Vorbis .ogg file.  default=0 */
-/* DEPRECATED */
-int CDECL lame_set_ogg(lame_global_flags *, int);
-int CDECL lame_get_ogg(const lame_global_flags *);
-#endif
 
 /*
   internal algorithm selection.  True quality is determined by the bitrate
@@ -264,17 +248,6 @@ int CDECL lame_get_quality(const lame_global_flags *);
 */
 int CDECL lame_set_mode(lame_global_flags *, MPEG_mode);
 MPEG_mode CDECL lame_get_mode(const lame_global_flags *);
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-#else
-/*
-  mode_automs.  Use a M/S mode with a switching threshold based on
-  compression ratio
-  DEPRECATED
-*/
-int CDECL lame_set_mode_automs(lame_global_flags *, int);
-int CDECL lame_get_mode_automs(const lame_global_flags *);
-#endif
 
 /*
   force_ms.  Force M/S for all frames.  For testing only.
@@ -297,25 +270,6 @@ int CDECL lame_get_findReplayGain(const lame_global_flags *);
  * NOTE: if this option is set the build-in decoder should not be used */
 int CDECL lame_set_decode_on_the_fly(lame_global_flags *, int);
 int CDECL lame_get_decode_on_the_fly(const lame_global_flags *);
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-#else
-/* DEPRECATED: now does the same as lame_set_findReplayGain()
-   default = 0 (disabled) */
-int CDECL lame_set_ReplayGain_input(lame_global_flags *, int);
-int CDECL lame_get_ReplayGain_input(const lame_global_flags *);
-
-/* DEPRECATED: now does the same as
-   lame_set_decode_on_the_fly() && lame_set_findReplayGain()
-   default = 0 (disabled) */
-int CDECL lame_set_ReplayGain_decode(lame_global_flags *, int);
-int CDECL lame_get_ReplayGain_decode(const lame_global_flags *);
-
-/* DEPRECATED: now does the same as lame_set_decode_on_the_fly()
-   default = 0 (disabled) */
-int CDECL lame_set_findPeakSample(lame_global_flags *, int);
-int CDECL lame_get_findPeakSample(const lame_global_flags *);
-#endif
 
 /* counters for gapless encoding */
 int CDECL lame_set_nogap_total(lame_global_flags*, int);
@@ -370,13 +324,6 @@ int CDECL lame_get_original(const lame_global_flags *);
 /* error_protection.  Use 2 bytes from each frame for CRC checksum. default=0 */
 int CDECL lame_set_error_protection(lame_global_flags *, int);
 int CDECL lame_get_error_protection(const lame_global_flags *);
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-#else
-/* padding_type. 0=pad no frames  1=pad all frames 2=adjust padding(default) */
-int CDECL lame_set_padding_type(lame_global_flags *, Padding_type);
-Padding_type CDECL lame_get_padding_type(const lame_global_flags *);
-#endif
 
 /* MP3 'private extension' bit  Meaningless.  default=0 */
 int CDECL lame_set_extension(lame_global_flags *, int);
@@ -452,12 +399,6 @@ int CDECL lame_get_VBR_max_bitrate_kbps(const lame_global_flags *);
 int CDECL lame_set_VBR_hard_min(lame_global_flags *, int);
 int CDECL lame_get_VBR_hard_min(const lame_global_flags *);
 
-/* for preset */
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-#else
-int CDECL lame_set_preset_expopts(lame_global_flags *, int);
-#endif
-
 /********************************************************************
  * Filtering control
  ***********************************************************************/
@@ -505,23 +446,9 @@ float CDECL lame_get_ATHlower(const lame_global_flags *);
 int CDECL lame_set_athaa_type( lame_global_flags *, int);
 int CDECL lame_get_athaa_type( const lame_global_flags *);
 
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-#else
-/* select the loudness approximation used by the ATH adaptive auto-leveling  */
-int CDECL lame_set_athaa_loudapprox( lame_global_flags *, int);
-int CDECL lame_get_athaa_loudapprox( const lame_global_flags *);
-#endif
-
 /* adjust (in dB) the point below which adaptive ATH level adjustment occurs */
 int CDECL lame_set_athaa_sensitivity( lame_global_flags *, float);
 float CDECL lame_get_athaa_sensitivity( const lame_global_flags* );
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-#else
-/* OBSOLETE: predictability limit (ISO tonality formula) */
-int CDECL lame_set_cwlimit(lame_global_flags *, int);
-int CDECL lame_get_cwlimit(const lame_global_flags *);
-#endif
 
 /*
   allow blocktypes to differ between channels?
@@ -916,7 +843,7 @@ int CDECL lame_init_bitstream(
  *   2: MS    mid-side encoded
  *   3: MS-I  mid-side and intensity encoded (currently not supported)
  *
- * attention: don't call them after lame_encode_finish
+ * attention: don't call them after lame_close
  * suggested: lame_encode_flush -> lame_*_hist -> lame_close
  */
 
@@ -942,8 +869,6 @@ void CDECL lame_bitrate_block_type_hist (
         const lame_global_flags * gfp,
         int bitrate_btype_count[14][6] );
 
-#if (DEPRECATED_OR_OBSOLETE_CODE_REMOVED && 0)
-#else
 /*
  * OPTIONAL:
  * lame_mp3_tags_fid will rewrite a Xing VBR tag to the mp3 file with file
@@ -962,7 +887,6 @@ void CDECL lame_bitrate_block_type_hist (
  * the lametag yourself.
 */
 void CDECL lame_mp3_tags_fid(lame_global_flags *, FILE* fid);
-#endif
 
 /*
  * OPTIONAL:
@@ -989,21 +913,6 @@ size_t CDECL lame_get_lametag_frame(
  * final call to free all remaining buffers
  */
 int  CDECL lame_close (lame_global_flags *);
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-#else
-/*
- * OBSOLETE:
- * lame_encode_finish combines lame_encode_flush() and lame_close() in
- * one call.  However, once this call is made, the statistics routines
- * will no longer work because the data will have been cleared, and
- * lame_mp3_tags_fid() cannot be called to add data to the VBR header
- */
-int CDECL lame_encode_finish(
-        lame_global_flags*  gfp,
-        unsigned char*      mp3buf,
-        int                 size );
-#endif
 
 
 
@@ -1120,49 +1029,6 @@ int CDECL hip_decode1_headersB( hip_t gfp
 
 
 
-/* OBSOLETE:
- * lame_decode... functions are there to keep old code working
- * but it is strongly recommended to replace calls by hip_decode...
- * function calls, see above.
- */
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-#else
-int CDECL lame_decode_init(void);
-int CDECL lame_decode(
-        unsigned char *  mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[] );
-int CDECL lame_decode_headers(
-        unsigned char*   mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[],
-        mp3data_struct*  mp3data );
-int CDECL lame_decode1(
-        unsigned char*  mp3buf,
-        int             len,
-        short           pcm_l[],
-        short           pcm_r[] );
-int CDECL lame_decode1_headers(
-        unsigned char*   mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[],
-        mp3data_struct*  mp3data );
-int CDECL lame_decode1_headersB(
-        unsigned char*   mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[],
-        mp3data_struct*  mp3data,
-        int              *enc_delay,
-        int              *enc_padding );
-int CDECL lame_decode_exit(void);
-
-#endif /* obsolete lame_decode API calls */
-
-
 /*********************************************************************
  *
  * id3tag stuff
@@ -1275,21 +1141,11 @@ int CDECL id3tag_set_textinfo_latin1(lame_t gfp, char const *id, char const *tex
 /* experimental */
 int CDECL id3tag_set_comment_latin1(lame_t gfp, char const *lang, char const *desc, char const *text);
 
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-#else
-/* experimental */
-int CDECL id3tag_set_textinfo_ucs2(lame_t gfp, char const *id, unsigned short const *text);
-
-/* experimental */
-int CDECL id3tag_set_comment_ucs2(lame_t gfp, char const *lang,
-                                  unsigned short const *desc, unsigned short const *text);
-
-/* experimental */
-int CDECL id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldvalue);
-#endif
-
 /* experimental */
 int CDECL id3tag_set_fieldvalue_utf16(lame_t gfp, const unsigned short *fieldvalue);
+
+/* experimental */
+int CDECL id3tag_set_fieldvalue_utf8(lame_t gfp, const char *fieldvalue);
 
 /* experimental */
 int CDECL id3tag_set_textinfo_utf16(lame_t gfp, char const *id, unsigned short const *text);
@@ -1325,8 +1181,7 @@ int CDECL lame_get_samplerate(int mpeg_version, int table_index);
 #define LAME_MAXALBUMART    (128 * 1024)
 
 /* maximum size of mp3buffer needed if you encode at most 1152 samples for
-   each call to lame_encode_buffer.  see lame_encode_buffer() below  
-   (LAME_MAXMP3BUFFER is now obsolete)  */
+   each call to lame_encode_buffer.  see lame_encode_buffer() below. */
 #define LAME_MAXMP3BUFFER   (16384 + LAME_MAXALBUMART)
 
 

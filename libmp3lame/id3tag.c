@@ -180,21 +180,6 @@ test_tag_spec_flags(lame_internal_flags const *gfc, unsigned int tst)
     return (gfc->tag_spec.flags & tst) != 0u ? 1 : 0;
 }
 
-#if 0
-static void
-debug_tag_spec_flags(lame_internal_flags * gfc, const char* info)
-{
-    MSGF(gfc, "%s\n", info);
-    MSGF(gfc, "CHANGED_FLAG  : %d\n", test_tag_spec_flags(gfc, CHANGED_FLAG )); 
-    MSGF(gfc, "ADD_V2_FLAG   : %d\n", test_tag_spec_flags(gfc, ADD_V2_FLAG  )); 
-    MSGF(gfc, "V1_ONLY_FLAG  : %d\n", test_tag_spec_flags(gfc, V1_ONLY_FLAG )); 
-    MSGF(gfc, "V2_ONLY_FLAG  : %d\n", test_tag_spec_flags(gfc, V2_ONLY_FLAG )); 
-    MSGF(gfc, "SPACE_V1_FLAG : %d\n", test_tag_spec_flags(gfc, SPACE_V1_FLAG)); 
-    MSGF(gfc, "PAD_V2_FLAG   : %d\n", test_tag_spec_flags(gfc, PAD_V2_FLAG  ));
-    // adding debugging functionality for the ID3v2.4 flag
-    MSGF(gfc, "V2_4_UTF8_FLAG: %d\n", test_tag_spec_flags(gfc, V2_4_UTF8_FLAG));
-}
-#endif
 
 static int
 is_lame_internal_flags_null(lame_t gfp)
@@ -238,9 +223,6 @@ copyV1ToV2(lame_t gfp, int frame_id, char const *s)
             id3v2_add_latin1_lng(gfp, frame_id, 0, s);
         }
         gfc->tag_spec.flags = flags;
-#if 0
-        debug_tag_spec_flags(gfc, "copyV1ToV2");
-#endif
     }
 }
 
@@ -810,21 +792,6 @@ toID3v2TagId_ucs2(unsigned short const *s)
     return x;
 }
 
-#if 0
-static int
-isNumericString(uint32_t frame_id)
-{
-    switch (frame_id) {
-    case ID_DATE:
-    case ID_TIME:
-    case ID_TPOS:
-    case ID_TRACK:
-    case ID_YEAR:
-        return 1;
-    }
-    return 0;
-}
-#endif
 
 static int
 isMultiFrame(uint32_t frame_id)
@@ -847,18 +814,6 @@ isMultiFrame(uint32_t frame_id)
     return 0;
 }
 
-#if 0
-static int
-isFullTextString(int frame_id)
-{
-    switch (frame_id) {
-    case ID_VSLT:
-    case ID_COMMENT:
-        return 1;
-    }
-    return 0;
-}
-#endif
 
 static FrameDataNode *
 findNode(id3tag_spec const *tag, uint32_t frame_id, FrameDataNode const *last)
@@ -1152,11 +1107,6 @@ id3tag_set_textinfo_utf8(lame_t gfp, char const *id, char const *text)
     }
     if (isFrameIdMatching(frame_id, FRAME_ID('T', 0, 0, 0))
       ||isFrameIdMatching(frame_id, FRAME_ID('W', 0, 0, 0))) {
-#if 0
-        if (isNumericString(frame_id)) {
-            return -2;  /* must be Latin-1 encoded */
-        }
-#endif
         return id3v2_add_utf8_lng(gfp, frame_id, 0, text);
     }
     return -255;        /* not supported by now */
@@ -1195,23 +1145,9 @@ id3tag_set_textinfo_utf16(lame_t gfp, char const *id, unsigned short const *text
     }
     if (isFrameIdMatching(frame_id, FRAME_ID('T', 0, 0, 0))
       ||isFrameIdMatching(frame_id, FRAME_ID('W', 0, 0, 0))) {
-#if 0
-        if (isNumericString(frame_id)) {
-            return -2;  /* must be Latin-1 encoded */
-        }
-#endif
         return id3v2_add_ucs2_lng(gfp, frame_id, 0, text);
     }
     return -255;        /* not supported by now */
-}
-
-extern int
-id3tag_set_textinfo_ucs2(lame_t gfp, char const *id, unsigned short const *text);
-
-int
-id3tag_set_textinfo_ucs2(lame_t gfp, char const *id, unsigned short const *text)
-{
-    return id3tag_set_textinfo_utf16(gfp, id, text);
 }
 
 int
@@ -1277,20 +1213,6 @@ id3tag_set_comment_utf16(lame_t gfp, char const *lang, unsigned short const *des
     }
     return id3v2_add_ucs2(gfp, ID_COMMENT, lang, desc, text);
 }
-
-extern int
-id3tag_set_comment_ucs2(lame_t gfp, char const *lang, unsigned short const *desc, unsigned short const *text);
-
-
-int
-id3tag_set_comment_ucs2(lame_t gfp, char const *lang, unsigned short const *desc, unsigned short const *text)
-{
-    if (is_lame_internal_flags_null(gfp)) {
-        return 0;
-    }
-    return id3tag_set_comment_utf16(gfp, lang, desc, text);
-}
-
 
 void
 id3tag_set_title(lame_t gfp, const char *title)
@@ -1826,16 +1748,19 @@ id3tag_set_fieldvalue_utf16(lame_t gfp, const unsigned short *fieldvalue)
     return -1;
 }
 
-extern int
-id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldvalue);
-
 int
-id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldvalue)
+id3tag_set_fieldvalue_utf8(lame_t gfp, const char *fieldvalue)
 {
     if (is_lame_internal_flags_null(gfp)) {
         return 0;
     }
-    return id3tag_set_fieldvalue_utf16(gfp, fieldvalue);
+    if (fieldvalue && *fieldvalue) {
+        if (strlen(fieldvalue) < 5 || fieldvalue[4] != '=') {
+            return -1;
+        }
+        return id3tag_set_textinfo_utf8(gfp, fieldvalue, &fieldvalue[5]);
+    }
+    return 0;
 }
 
 size_t
@@ -1850,9 +1775,6 @@ lame_get_id3v2_tag(lame_t gfp, unsigned char *buffer, size_t size)
     if (test_tag_spec_flags(gfc, V1_ONLY_FLAG)) {
         return 0;
     }
-#if 0
-    debug_tag_spec_flags(gfc, "lame_get_id3v2_tag");
-#endif
     {
         int usev2 = test_tag_spec_flags(gfc, ADD_V2_FLAG | V2_ONLY_FLAG);
         /* calculate length of four fields which may not fit in verion 1 tag */
@@ -2003,9 +1925,6 @@ id3tag_write_v2(lame_t gfp)
         return 0;
     }
     gfc = gfp->internal_flags;
-#if 0
-    debug_tag_spec_flags(gfc, "write v2");
-#endif
     if (test_tag_spec_flags(gfc, V1_ONLY_FLAG)) {
         return 0;
     }

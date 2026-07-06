@@ -3,7 +3,6 @@
 -V3 -b 128 -B 192 -F
 --freeformat -b 33
 --freeformat -b 330
--k
 --lowpass 12
 --noath
 --noasm mmx --noasm 3dnow --noasm sse

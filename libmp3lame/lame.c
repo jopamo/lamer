@@ -386,7 +386,7 @@ lame_init_qval(lame_global_flags * gfp)
         cfg->noise_shaping_stop = 0;
         cfg->use_best_huffman = 0;
         cfg->full_outer_loop = 0;
-        if (cfg->vbr == vbr_mt || cfg->vbr == vbr_mtrh) {
+        if (cfg->vbr == vbr_mtrh) {
             cfg->full_outer_loop  = -1;
         }
         break;
@@ -626,7 +626,6 @@ lame_init_params(lame_global_flags * gfp)
     switch (cfg->vbr) {
     case vbr_off:
     case vbr_mtrh:
-    case vbr_mt:
         /* these modes can handle free format condition */
         break;
     default:
@@ -676,7 +675,7 @@ lame_init_params(lame_global_flags * gfp)
     }
     /* WORK IN PROGRESS */
     /* mapping VBR scale to internal VBR quality settings */
-    if (gfp->samplerate_out == 0 && (cfg->vbr == vbr_mt || cfg->vbr == vbr_mtrh)) {
+    if (gfp->samplerate_out == 0 && cfg->vbr == vbr_mtrh) {
         float const qval = gfp->VBR_q + gfp->VBR_q_frac;
         struct q_map { int sr_a; float qa, qb, ta, tb; int lp; };
         struct q_map const m[9]
@@ -745,8 +744,7 @@ lame_init_params(lame_global_flags * gfp)
                 }
                 break;
             }
-        case vbr_mtrh:
-        case vbr_mt:{
+        case vbr_mtrh:{
                 int const x[11] = {
                     24000, 19500, 18500, 18000, 17500, 17000, 16500, 15600, 15200, 7230, 3950
                 };
@@ -785,7 +783,7 @@ lame_init_params(lame_global_flags * gfp)
         }
         gfp->samplerate_out = optimum_samplefreq((int) gfp->lowpassfreq, gfp->samplerate_in);
     }
-    if (cfg->vbr == vbr_mt || cfg->vbr == vbr_mtrh) {
+    if (cfg->vbr == vbr_mtrh) {
         gfp->lowpassfreq = Min(24000, gfp->lowpassfreq);
     }
     else {
@@ -838,7 +836,6 @@ lame_init_params(lame_global_flags * gfp)
      */
 
     switch (cfg->vbr) {
-    case vbr_mt:
     case vbr_rh:
     case vbr_mtrh:
         {
@@ -983,7 +980,6 @@ lame_init_params(lame_global_flags * gfp)
 
     switch (cfg->vbr) {
 
-    case vbr_mt:
     case vbr_mtrh:{
             if (gfp->strict_ISO < 0) {
                 gfp->strict_ISO = MDB_MAXIMUM;
@@ -1515,9 +1511,6 @@ lame_print_internals(const lame_global_flags * gfp)
         break;
     case vbr_rh:
         MSGF(gfc, "\tvariable bitrate - VBR rh %s\n", pc);
-        break;
-    case vbr_mt:
-        MSGF(gfc, "\tvariable bitrate - VBR mt %s\n", pc);
         break;
     case vbr_mtrh:
         MSGF(gfc, "\tvariable bitrate - VBR mtrh %s\n", pc);
@@ -2229,21 +2222,6 @@ lame_encode_flush(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buff
         }
         mp3count += imp3;
     }
-#if 0
-    {
-        int const ed = gfc->ov_enc.encoder_delay;
-        int const ep = gfc->ov_enc.encoder_padding;
-        int const ns = (gfc->ov_enc.frame_number * pcm_samples_per_frame) - (ed + ep);
-        double  duration = ns;
-        duration /= cfg->samplerate_out;
-        MSGF(gfc, "frames=%d\n", gfc->ov_enc.frame_number);
-        MSGF(gfc, "pcm_samples_per_frame=%d\n", pcm_samples_per_frame);
-        MSGF(gfc, "encoder delay=%d\n", ed);
-        MSGF(gfc, "encoder padding=%d\n", ep);
-        MSGF(gfc, "sample count=%d (%g)\n", ns, cfg->samplerate_in * duration);
-        MSGF(gfc, "duration=%g sec\n", duration);
-    }
-#endif
     return mp3count;
 }
 
@@ -2277,25 +2255,6 @@ lame_close(lame_global_flags * gfp)
             free(gfp);
         }
     }
-    return ret;
-}
-
-/*****************************************************************/
-/* flush internal mp3 buffers, and free internal buffers         */
-/*****************************************************************/
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-int CDECL
-lame_encode_finish(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buffer_size);
-#else
-#endif
-
-int
-lame_encode_finish(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buffer_size)
-{
-    int const ret = lame_encode_flush(gfp, mp3buffer, mp3buffer_size);
-
-    (void) lame_close(gfp);
-
     return ret;
 }
 
@@ -2392,13 +2351,9 @@ lame_init_internal_flags(lame_internal_flags* gfc)
     return 0;
 }
 
-/* initialize mp3 encoder */
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-static
-#else
-#endif
-int
-lame_init_old(lame_global_flags * gfp)
+/* initialize mp3 encoder defaults */
+static int
+lame_init_defaults(lame_global_flags * gfp)
 {
     disable_FPE();      /* disable floating point exceptions */
 
@@ -2495,7 +2450,7 @@ lame_init(void)
     if (gfp == NULL)
         return NULL;
 
-    ret = lame_init_old(gfp);
+    ret = lame_init_defaults(gfp);
     if (ret != 0) {
         free(gfp);
         return NULL;

@@ -418,7 +418,6 @@ long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramNam
 
     fprintf(fp,
             "  MP3 header/stream options:\n"
-            "    -e <emp>        de-emphasis n/5/c  (obsolete)\n"
             "    -c              mark as copyright\n"
             "    -o              mark as non-original\n"
             "    -p              error protection.  adds 16 bit checksum to every frame\n"
