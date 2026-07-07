@@ -448,6 +448,49 @@ convert_partition2scalefac_l_to_s(lame_internal_flags * gfc, FLOAT const *eb, FL
     }
 }
 
+static void
+convert_partition2scalefac_l_index(PsyConst_CB2SB_t const *const gd,
+                                   unsigned char const *mask_idx, FLOAT tonality_out[SBMAX_l])
+{
+    FLOAT   tonality = 0.0f;
+    FLOAT   weight = 0.0f;
+    int     sb, b, n = gd->n_sb;
+
+    for (sb = b = 0; sb < n; ++b, ++sb) {
+        int const bo_sb = gd->bo[sb];
+        int const npart = gd->npart;
+        int const b_lim = bo_sb < npart ? bo_sb : npart;
+
+        while (b < b_lim) {
+            tonality += mask_idx[b];
+            weight += 1.0f;
+            b++;
+        }
+        if (b >= npart) {
+            tonality_out[sb] = weight > 0.0f
+                ? tonality / (weight * (FLOAT) (dimension_of(tab) - 1))
+                : 0.0f;
+            ++sb;
+            break;
+        }
+        {
+            FLOAT const w_curr = gd->bo_weight[sb];
+            FLOAT const w_next = 1.0f - w_curr;
+
+            tonality += w_curr * mask_idx[b];
+            weight += w_curr;
+            tonality_out[sb] = weight > 0.0f
+                ? tonality / (weight * (FLOAT) (dimension_of(tab) - 1))
+                : 0.0f;
+            tonality = w_next * mask_idx[b];
+            weight = w_next;
+        }
+    }
+    for (; sb < n; ++sb) {
+        tonality_out[sb] = 0.0f;
+    }
+}
+
 
 
 static inline FLOAT
@@ -1200,7 +1243,8 @@ vbrpsy_compute_masking_s(lame_internal_flags * gfc, const FLOAT(*fftenergy_s)[HB
 
 static void
 vbrpsy_compute_masking_l(lame_internal_flags * gfc, const FLOAT fftenergy[HBLKSIZE],
-                         FLOAT eb_l[CBANDS], FLOAT thr[CBANDS], int chn)
+                         FLOAT eb_l[CBANDS], FLOAT thr[CBANDS], int chn,
+                         FLOAT tonality_out[SBMAX_l])
 {
     PsyStateVar_t *const psv = &gfc->sv_psy;
     PsyConst_CB2SB_t const *const gdl = &gfc->cd_psy->l;
@@ -1318,6 +1362,10 @@ vbrpsy_compute_masking_l(lame_internal_flags * gfc, const FLOAT fftenergy[HBLKSI
     for (; b < CBANDS; ++b) {
         eb_l[b] = 0;
         thr[b] = 0;
+    }
+
+    if (tonality_out != 0) {
+        convert_partition2scalefac_l_index(gdl, mask_idx_l, tonality_out);
     }
 }
 
@@ -1469,6 +1517,7 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
     plotting_data *plt = cfg->analysis ? gfc->pinfo : 0;
 
     III_psy_xmin last_thm[4];
+    III_psy_xmin last_en[4];
 
     /* fft and energy calculation   */
     FLOAT(*wsamp_l)[BLKSIZE];
@@ -1478,6 +1527,7 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
     FLOAT   wsamp_L[2][BLKSIZE];
     FLOAT   wsamp_S[2][3][BLKSIZE_s];
     FLOAT   eb[4][CBANDS], thr[4][CBANDS];
+    FLOAT   steady_tonality[4][SBMAX_l];
 
     FLOAT   sub_short_factor[4][3];
     FLOAT   thmm;
@@ -1499,6 +1549,8 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
     /* chn=2 and 3 = Mid and Side channels */
     int const n_chn_psy = (cfg->mode == JOINT_STEREO) ? 4 : cfg->channels_out;
 
+    memset(steady_tonality, 0, sizeof(steady_tonality));
+    memcpy(&last_en[0], &psv->en[0], sizeof(last_en));
     memcpy(&last_thm[0], &psv->thm[0], sizeof(last_thm));
     memset(&trans, 0, sizeof(trans));
 
@@ -1548,7 +1600,8 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
             wsamp_l = wsamp_L + ch01;
             vbrpsy_compute_fft_l(gfc, buffer, chn, gr_out, fftenergy, wsamp_l);
             vbrpsy_compute_loudness_approximation_l(gfc, gr_out, chn, fftenergy);
-            vbrpsy_compute_masking_l(gfc, fftenergy, eb[chn], thr[chn], chn);
+            vbrpsy_compute_masking_l(gfc, fftenergy, eb[chn], thr[chn], chn,
+                                     steady_tonality[chn]);
         }
         if (cfg->mode == JOINT_STEREO) {
             if ((uselongblock[0] + uselongblock[1]) == 2) {
@@ -1560,6 +1613,36 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
         for (chn = 0; chn < n_chn_psy; chn++) {
             convert_partition2scalefac_l(gfc, eb[chn], thr[chn], chn);
             convert_partition2scalefac_l_to_s(gfc, eb[chn], thr[chn], chn);
+        }
+        for (chn = 0; chn < 4; ++chn) {
+            for (sb = 0; sb < SBMAX_l; ++sb) {
+                FLOAT curr_energy = 0.0f;
+                FLOAT curr_tonality = 0.0f;
+                FLOAT curr_stability = 0.0f;
+
+                psv->steady_band_energy[gr_out][chn][sb] =
+                    psv->steady_band_energy_save[chn][sb];
+                psv->steady_band_tonality[gr_out][chn][sb] =
+                    psv->steady_band_tonality_save[chn][sb];
+                psv->steady_band_stability[gr_out][chn][sb] =
+                    psv->steady_band_stability_save[chn][sb];
+
+                if (chn < n_chn_psy) {
+                    FLOAT const prev_energy = last_en[chn].l[sb];
+
+                    curr_energy = psv->en[chn].l[sb];
+                    curr_tonality = steady_tonality[chn][sb];
+                    if (curr_energy > 0.0f && prev_energy > 0.0f) {
+                        FLOAT const hi = Max(curr_energy, prev_energy);
+                        FLOAT const lo = Min(curr_energy, prev_energy);
+                        curr_stability = lo / hi;
+                    }
+                }
+
+                psv->steady_band_energy_save[chn][sb] = curr_energy;
+                psv->steady_band_tonality_save[chn][sb] = curr_tonality;
+                psv->steady_band_stability_save[chn][sb] = curr_stability;
+            }
         }
     }
     /* SHORT BLOCKS CASE */
@@ -1963,6 +2046,17 @@ psymodel_init(lame_global_flags const *gfp)
     memset(psv->short_mask_final_mask, 0,
            sizeof(psv->short_mask_final_mask));
     memset(psv->short_mask_pos, 0, sizeof(psv->short_mask_pos));
+    memset(psv->steady_band_energy_save, 0,
+           sizeof(psv->steady_band_energy_save));
+    memset(psv->steady_band_tonality_save, 0,
+           sizeof(psv->steady_band_tonality_save));
+    memset(psv->steady_band_stability_save, 0,
+           sizeof(psv->steady_band_stability_save));
+    memset(psv->steady_band_energy, 0, sizeof(psv->steady_band_energy));
+    memset(psv->steady_band_tonality, 0,
+           sizeof(psv->steady_band_tonality));
+    memset(psv->steady_band_stability, 0,
+           sizeof(psv->steady_band_stability));
 
     psv->blocktype_old[0] = psv->blocktype_old[1] = NORM_TYPE; /* the vbr header is long blocks */
 

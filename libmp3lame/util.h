@@ -284,6 +284,18 @@ fast_log2(ieee754_float32_t x)
         FLOAT   short_mask_tail_ratio[2][4];
         unsigned char short_mask_final_mask[2][4];
         signed char short_mask_pos[2][4];
+
+        /*
+         * Published steady-state long-band policy state for the encoded granule.
+         * Like the transient state, this stays delayed by one granule so VBR
+         * policy only sees the granule that is actually being encoded.
+         */
+        FLOAT   steady_band_energy_save[4][SBMAX_l];
+        FLOAT   steady_band_tonality_save[4][SBMAX_l];
+        FLOAT   steady_band_stability_save[4][SBMAX_l];
+        FLOAT   steady_band_energy[2][4][SBMAX_l];
+        FLOAT   steady_band_tonality[2][4][SBMAX_l];
+        FLOAT   steady_band_stability[2][4][SBMAX_l];
     } PsyStateVar_t;
 
 

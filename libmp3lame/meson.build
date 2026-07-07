@@ -14,6 +14,7 @@ libmp3lame_sources = files(
   'quantize_pvt.c',
   'reservoir.c',
   'set_get.c',
+  'steadyprotect.c',
   'tables.c',
   'takehiro.c',
   'util.c',

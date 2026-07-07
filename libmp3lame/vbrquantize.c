@@ -34,6 +34,7 @@
 #include "util.h"
 #include "vbrquantize.h"
 #include "quantize_pvt.h"
+#include "steadyprotect.h"
 
 
 
@@ -105,12 +106,24 @@ struct algo_s {
 #ifndef SHORT_EXPERIMENTAL_REDIST_PROFILE_MASK
 #define SHORT_EXPERIMENTAL_REDIST_PROFILE_MASK ((1u << 0) | (1u << 1) | (1u << 2) | (1u << 3))
 #endif
+#ifndef STEADY_TONAL_GLOBAL_MAX_NOISE_SLOP
+#define STEADY_TONAL_GLOBAL_MAX_NOISE_SLOP 1.0f
+#endif
+#ifndef STEADY_TONAL_OVERCOUNT_SLOP
+#define STEADY_TONAL_OVERCOUNT_SLOP 2
+#endif
 
 typedef struct {
     FLOAT   max_noise;
     FLOAT   over_noise;
     int     over_count;
 } short_window_noise_t;
+
+typedef struct {
+    FLOAT   max_noise;
+    FLOAT   over_noise;
+    int     over_count;
+} steady_band_noise_t;
 
 typedef struct {
     int     attack_max_short_band;
@@ -275,6 +288,51 @@ short_transient_build_redistributed_xmin(FLOAT *redis_xmin,
 static int
 short_redist_profile_better(short_window_noise_t const *candidate, int candidate_bits,
                             short_window_noise_t const *best, int best_bits)
+{
+    if (candidate->over_noise < best->over_noise) {
+        return 1;
+    }
+    if (candidate->over_noise > best->over_noise) {
+        return 0;
+    }
+    if (candidate->max_noise < best->max_noise) {
+        return 1;
+    }
+    if (candidate->max_noise > best->max_noise) {
+        return 0;
+    }
+    return candidate_bits < best_bits;
+}
+
+static void
+steady_tonal_band_noise(gr_info const *cod_info, FLOAT const *distort,
+                        unsigned int sfb_mask, steady_band_noise_t *res)
+{
+    int sfb;
+
+    (void) cod_info;
+    res->max_noise = -20.0f;
+    res->over_noise = 0.0f;
+    res->over_count = 0;
+
+    for (sfb = 0; sfb < SBMAX_l; ++sfb) {
+        if ((sfb_mask & (1u << sfb)) == 0) {
+            continue;
+        }
+        {
+            FLOAT const noise = FAST_LOG10(Max(distort[sfb], 1E-20f));
+            if (noise > 0.0f) {
+                res->over_noise += noise;
+                res->over_count++;
+            }
+            res->max_noise = Max(res->max_noise, noise);
+        }
+    }
+}
+
+static int
+steady_tonal_profile_better(steady_band_noise_t const *candidate, int candidate_bits,
+                            steady_band_noise_t const *best, int best_bits)
 {
     if (candidate->over_noise < best->over_noise) {
         return 1;
@@ -747,6 +805,390 @@ short_transient_redistribute_retry(lame_internal_flags *gfc,
                             summary_noise_orig->over_count,
                             summary_tightened_bands, summary_relaxed_bands,
                             mode->trace_prefix, reject_reason, rollback_ok);
+                }
+            }
+        }
+    }
+}
+
+static void
+steady_tonal_protect_retry(lame_internal_flags *gfc,
+                           algo_t that_[2][2],
+                           const FLOAT l3_xmin[2][2][SFBMAX],
+                           int sfwork_[2][2][SFBMAX],
+                           int vbrsfmin_[2][2][SFBMAX],
+                           int max_nbits_ch[2][2],
+                           int ngr, int nch,
+                           int use_nbits_ch[2][2],
+                           int use_nbits_gr[2],
+                           int *use_nbits_fr,
+                           int max_nbits_fr)
+{
+    SessionConfig_t const *const cfg = &gfc->cfg;
+    int const profiles_available = steady_tonal_profile_count();
+    int gr2, ch2;
+
+    for (gr2 = 0; gr2 < ngr; ++gr2) {
+        for (ch2 = 0; ch2 < nch; ++ch2) {
+            algo_t *that = &that_[gr2][ch2];
+            gr_info *cod_info = that->cod_info;
+            int const psy_ch = short_mask_relax_psy_ch(gfc, ch2);
+            int const old_bits = cod_info->part2_3_length;
+            FLOAT old_distort[SFBMAX];
+            steady_tonal_candidate_t candidate_info;
+            steady_band_noise_t old_selected_noise;
+            calc_noise_result noise_orig;
+            char const *candidate_reason = "eligible";
+            int candidate;
+
+            if (cod_info->block_type == SHORT_TYPE) {
+                continue;
+            }
+
+            calc_noise(cod_info, l3_xmin[gr2][ch2], old_distort, &noise_orig, 0);
+            candidate = steady_tonal_candidate_select(gfc, cod_info, gr2, psy_ch,
+                                                      old_distort,
+                                                      &candidate_info,
+                                                      &candidate_reason);
+            steady_tonal_band_noise(cod_info, old_distort,
+                                    candidate_info.sfb_mask,
+                                    &old_selected_noise);
+
+            if (cfg->analysis) {
+                fprintf(stderr,
+                        "steady_tonal_protect_candidate=%d frame=%d gr=%d ch=%d psy_ch=%d source=%s "
+                        "steady_tonal_protect_reject_reason=%s "
+                        "steady_tonal_protect_profiles_available=%d "
+                        "selected_sfb_count=%d selected_sfb_mask=0x%08x "
+                        "first_sfb=%d last_sfb=%d "
+                        "mean_tonality=%.3f min_stability=%.3f mean_ath_margin_db=%.2f "
+                        "old_bits=%d "
+                        "old_selected_max_noise=%.2f old_selected_over_noise=%.2f old_selected_over_count=%d "
+                        "old_global_max_noise=%.2f old_over_count=%d\n",
+                        candidate,
+                        gfc->ov_enc.frame_number, gr2, ch2, psy_ch,
+                        short_mask_relax_source_name(psy_ch),
+                        candidate_reason, profiles_available,
+                        candidate_info.sfb_count, candidate_info.sfb_mask,
+                        candidate_info.first_sfb, candidate_info.last_sfb,
+                        (double) candidate_info.mean_tonality,
+                        (double) candidate_info.min_stability,
+                        (double) candidate_info.mean_ath_margin_db,
+                        old_bits,
+                        (double) old_selected_noise.max_noise,
+                        (double) old_selected_noise.over_noise,
+                        old_selected_noise.over_count,
+                        (double) noise_orig.max_noise,
+                        noise_orig.over_count);
+            }
+
+            if (!candidate) {
+                continue;
+            }
+
+            {
+                FLOAT redis_xmin[SFBMAX];
+                FLOAT new_distort[SFBMAX];
+                FLOAT restore_distort[SFBMAX];
+                gr_info saved_gi = *cod_info;
+                gr_info best_gi = *cod_info;
+                int saved_sfwork[SFBMAX];
+                int best_sfwork[SFBMAX];
+                int saved_vbrsfmin[SFBMAX];
+                int best_vbrsfmin[SFBMAX];
+                int saved_scfsi[2][4];
+                int best_scfsi[2][4];
+                int profile_index;
+                int old_nbits = use_nbits_ch[gr2][ch2];
+                int accept = 0;
+                int rollback_ok = 1;
+                int profiles_tried = 0;
+                int best_profile = -1;
+                int best_nbits = old_nbits;
+                int best_bits = old_bits;
+                int best_tightened_bands = 0;
+                int have_legal_profile = 0;
+                char const *reject_reason = "no_legal_profile";
+                calc_noise_result best_noise_orig = noise_orig;
+                calc_noise_result noise_restore_orig;
+                steady_band_noise_t best_selected_noise = old_selected_noise;
+                steady_band_noise_t restore_selected_noise;
+
+                memcpy(saved_sfwork, sfwork_[gr2][ch2], sizeof(saved_sfwork));
+                memcpy(saved_vbrsfmin, vbrsfmin_[gr2][ch2],
+                       sizeof(saved_vbrsfmin));
+                memcpy(saved_scfsi, gfc->l3_side.scfsi,
+                       sizeof(saved_scfsi));
+
+                for (profile_index = 0;
+                     profile_index < profiles_available;
+                     ++profile_index) {
+                    steady_tonal_profile_t const *profile =
+                        steady_tonal_profile_get(profile_index);
+                    calc_noise_result noise_retry_orig;
+                    steady_band_noise_t new_selected_noise;
+                    int tightened_bands = 0;
+                    int new_bits;
+                    int new_nbits = old_nbits;
+                    int legal_profile = 0;
+                    int trial_rollback_ok;
+                    char const *profile_reject_reason = "legal";
+
+                    if (profile == 0) {
+                        continue;
+                    }
+
+                    ++profiles_tried;
+                    *cod_info = saved_gi;
+                    memcpy(sfwork_[gr2][ch2], saved_sfwork,
+                           sizeof(saved_sfwork));
+                    memcpy(vbrsfmin_[gr2][ch2], saved_vbrsfmin,
+                           sizeof(saved_vbrsfmin));
+                    memcpy(gfc->l3_side.scfsi, saved_scfsi,
+                           sizeof(saved_scfsi));
+
+                    steady_tonal_build_xmin(redis_xmin, l3_xmin[gr2][ch2],
+                                            cod_info, &candidate_info, profile,
+                                            &tightened_bands);
+
+                    {
+                        int vbrmax;
+                        int *sfwork = sfwork_[gr2][ch2];
+                        int *vbrsfmin2 = vbrsfmin_[gr2][ch2];
+
+                        vbrmax = block_sf(that, redis_xmin, sfwork, vbrsfmin2);
+                        that->alloc(that, sfwork, vbrsfmin2, vbrmax);
+                        bitcount(that);
+                        cutDistribution(sfwork, sfwork,
+                                        that->cod_info->global_gain);
+                        outOfBitsStrategy(that, sfwork, vbrsfmin2,
+                                          max_nbits_ch[gr2][ch2]);
+                        memset(&cod_info->l3_enc[0], 0, sizeof(cod_info->l3_enc));
+                        (void) quantizeAndCountBits(that);
+                    }
+
+                    calc_noise(cod_info, l3_xmin[gr2][ch2], new_distort,
+                               &noise_retry_orig, 0);
+                    steady_tonal_band_noise(cod_info, new_distort,
+                                            candidate_info.sfb_mask,
+                                            &new_selected_noise);
+
+                    new_bits = cod_info->part2_3_length;
+
+                    if (new_bits > MAX_BITS_PER_CHANNEL) {
+                        profile_reject_reason = "bit_limit";
+                    }
+                    else if (noise_retry_orig.max_noise >
+                             noise_orig.max_noise + STEADY_TONAL_GLOBAL_MAX_NOISE_SLOP) {
+                        profile_reject_reason = "global_max_noise";
+                    }
+                    else if (noise_retry_orig.over_count >
+                             noise_orig.over_count + STEADY_TONAL_OVERCOUNT_SLOP) {
+                        profile_reject_reason = "over_count";
+                    }
+                    else {
+                        new_nbits = reduce_bit_usage(gfc, gr2, ch2);
+                        if (new_nbits > max_nbits_ch[gr2][ch2]) {
+                            profile_reject_reason = "channel_budget";
+                        }
+                        else if (*use_nbits_fr + (new_nbits - old_nbits) >
+                                 max_nbits_fr) {
+                            profile_reject_reason = "frame_budget";
+                        }
+                        else {
+                            legal_profile = 1;
+                        }
+                    }
+
+                    if (legal_profile
+                        && (!have_legal_profile
+                            || steady_tonal_profile_better(&new_selected_noise, new_bits,
+                                                           &best_selected_noise, best_bits))) {
+                        have_legal_profile = 1;
+                        best_profile = profile_index;
+                        best_gi = *cod_info;
+                        memcpy(best_sfwork, sfwork_[gr2][ch2],
+                               sizeof(best_sfwork));
+                        memcpy(best_vbrsfmin, vbrsfmin_[gr2][ch2],
+                               sizeof(best_vbrsfmin));
+                        memcpy(best_scfsi, gfc->l3_side.scfsi,
+                               sizeof(best_scfsi));
+                        best_nbits = new_nbits;
+                        best_bits = new_bits;
+                        best_tightened_bands = tightened_bands;
+                        best_selected_noise = new_selected_noise;
+                        best_noise_orig = noise_retry_orig;
+                    }
+
+                    *cod_info = saved_gi;
+                    memcpy(sfwork_[gr2][ch2], saved_sfwork,
+                           sizeof(saved_sfwork));
+                    memcpy(vbrsfmin_[gr2][ch2], saved_vbrsfmin,
+                           sizeof(saved_vbrsfmin));
+                    memcpy(gfc->l3_side.scfsi, saved_scfsi,
+                           sizeof(saved_scfsi));
+                    calc_noise(cod_info, l3_xmin[gr2][ch2], restore_distort,
+                               &noise_restore_orig, 0);
+                    steady_tonal_band_noise(cod_info, restore_distort,
+                                            candidate_info.sfb_mask,
+                                            &restore_selected_noise);
+                    trial_rollback_ok =
+                        cod_info->part2_3_length == old_bits
+                        && noise_restore_orig.over_count == noise_orig.over_count
+                        && fabsf(noise_restore_orig.max_noise - noise_orig.max_noise) < 1e-6f
+                        && fabsf(noise_restore_orig.over_noise - noise_orig.over_noise) < 1e-6f
+                        && restore_selected_noise.over_count == old_selected_noise.over_count
+                        && fabsf(restore_selected_noise.max_noise - old_selected_noise.max_noise) < 1e-6f
+                        && fabsf(restore_selected_noise.over_noise - old_selected_noise.over_noise) < 1e-6f
+                        && memcmp(gfc->l3_side.scfsi, saved_scfsi,
+                                  sizeof(saved_scfsi)) == 0;
+
+                    if (cfg->analysis) {
+                        fprintf(stderr,
+                                "steady_tonal_protect_profile_try=1 frame=%d gr=%d ch=%d psy_ch=%d source=%s "
+                                "steady_tonal_protect_profile=%d steady_tonal_protect_profile_legal=%d "
+                                "old_bits=%d new_bits=%d tighten_db=%.2f "
+                                "selected_sfb_count=%d selected_sfb_mask=0x%08x "
+                                "old_selected_max_noise=%.2f new_selected_max_noise=%.2f "
+                                "old_selected_over_noise=%.2f new_selected_over_noise=%.2f "
+                                "old_selected_over_count=%d new_selected_over_count=%d "
+                                "old_global_max_noise=%.2f new_global_max_noise=%.2f "
+                                "old_over_count=%d new_over_count=%d "
+                                "tightened_bands=%d "
+                                "steady_tonal_protect_reject_reason=%s rollback_ok=%d\n",
+                                gfc->ov_enc.frame_number,
+                                gr2, ch2, psy_ch,
+                                short_mask_relax_source_name(psy_ch),
+                                profile_index, legal_profile,
+                                old_bits, new_bits,
+                                (double) profile->tighten_db,
+                                candidate_info.sfb_count, candidate_info.sfb_mask,
+                                (double) old_selected_noise.max_noise,
+                                (double) new_selected_noise.max_noise,
+                                (double) old_selected_noise.over_noise,
+                                (double) new_selected_noise.over_noise,
+                                old_selected_noise.over_count,
+                                new_selected_noise.over_count,
+                                (double) noise_orig.max_noise,
+                                (double) noise_retry_orig.max_noise,
+                                noise_orig.over_count,
+                                noise_retry_orig.over_count,
+                                tightened_bands,
+                                profile_reject_reason,
+                                trial_rollback_ok);
+                    }
+
+                    if (!trial_rollback_ok) {
+                        rollback_ok = 0;
+                        reject_reason = "rollback_failed";
+                        break;
+                    }
+                }
+
+                if (rollback_ok && have_legal_profile) {
+                    int const selected_over_improved =
+                        best_selected_noise.over_noise < old_selected_noise.over_noise;
+                    int const selected_max_ok =
+                        best_selected_noise.max_noise <= old_selected_noise.max_noise;
+                    int const global_max_ok =
+                        best_noise_orig.max_noise
+                        <= noise_orig.max_noise + STEADY_TONAL_GLOBAL_MAX_NOISE_SLOP;
+                    int const over_count_ok =
+                        best_noise_orig.over_count
+                        <= noise_orig.over_count + STEADY_TONAL_OVERCOUNT_SLOP;
+
+                    accept = best_bits <= MAX_BITS_PER_CHANNEL
+                        && selected_over_improved
+                        && selected_max_ok
+                        && global_max_ok
+                        && over_count_ok;
+
+                    if (accept) {
+                        reject_reason = "accepted";
+                    }
+                    else if (!selected_over_improved) {
+                        reject_reason = "selected_over_noise";
+                    }
+                    else if (!selected_max_ok) {
+                        reject_reason = "selected_max_noise";
+                    }
+                    else if (!global_max_ok) {
+                        reject_reason = "global_max_noise";
+                    }
+                    else {
+                        reject_reason = "over_count";
+                    }
+                }
+
+                if (accept) {
+                    *cod_info = best_gi;
+                    memcpy(sfwork_[gr2][ch2], best_sfwork,
+                           sizeof(best_sfwork));
+                    memcpy(vbrsfmin_[gr2][ch2], best_vbrsfmin,
+                           sizeof(best_vbrsfmin));
+                    memcpy(gfc->l3_side.scfsi, best_scfsi,
+                           sizeof(best_scfsi));
+                    use_nbits_ch[gr2][ch2] = best_nbits;
+                    use_nbits_gr[gr2] += (best_nbits - old_nbits);
+                    *use_nbits_fr += (best_nbits - old_nbits);
+                }
+                else {
+                    *cod_info = saved_gi;
+                    memcpy(sfwork_[gr2][ch2], saved_sfwork,
+                           sizeof(saved_sfwork));
+                    memcpy(vbrsfmin_[gr2][ch2], saved_vbrsfmin,
+                           sizeof(saved_vbrsfmin));
+                    memcpy(gfc->l3_side.scfsi, saved_scfsi,
+                           sizeof(saved_scfsi));
+                }
+
+                if (cfg->analysis) {
+                    int summary_profile = have_legal_profile ? best_profile : -1;
+                    int summary_bits = have_legal_profile ? best_bits : old_bits;
+                    int summary_tightened_bands =
+                        have_legal_profile ? best_tightened_bands : 0;
+                    steady_band_noise_t const *summary_selected_noise =
+                        have_legal_profile ? &best_selected_noise : &old_selected_noise;
+                    calc_noise_result const *summary_noise_orig =
+                        have_legal_profile ? &best_noise_orig : &noise_orig;
+
+                    fprintf(stderr,
+                            "steady_tonal_protect_retry=1 steady_tonal_protect_profiles_tried=%d "
+                            "steady_tonal_protect_best_profile=%d steady_tonal_protect_accept=%d "
+                            "frame=%d gr=%d ch=%d psy_ch=%d source=%s "
+                            "selected_sfb_count=%d selected_sfb_mask=0x%08x "
+                            "first_sfb=%d last_sfb=%d "
+                            "mean_tonality=%.3f min_stability=%.3f mean_ath_margin_db=%.2f "
+                            "old_bits=%d new_bits=%d "
+                            "old_selected_max_noise=%.2f new_selected_max_noise=%.2f "
+                            "old_selected_over_noise=%.2f new_selected_over_noise=%.2f "
+                            "old_selected_over_count=%d new_selected_over_count=%d "
+                            "old_global_max_noise=%.2f new_global_max_noise=%.2f "
+                            "old_over_count=%d new_over_count=%d "
+                            "tightened_bands=%d "
+                            "steady_tonal_protect_reject_reason=%s rollback_ok=%d\n",
+                            profiles_tried,
+                            summary_profile, accept,
+                            gfc->ov_enc.frame_number, gr2, ch2, psy_ch,
+                            short_mask_relax_source_name(psy_ch),
+                            candidate_info.sfb_count, candidate_info.sfb_mask,
+                            candidate_info.first_sfb, candidate_info.last_sfb,
+                            (double) candidate_info.mean_tonality,
+                            (double) candidate_info.min_stability,
+                            (double) candidate_info.mean_ath_margin_db,
+                            old_bits, summary_bits,
+                            (double) old_selected_noise.max_noise,
+                            (double) summary_selected_noise->max_noise,
+                            (double) old_selected_noise.over_noise,
+                            (double) summary_selected_noise->over_noise,
+                            old_selected_noise.over_count,
+                            summary_selected_noise->over_count,
+                            (double) noise_orig.max_noise,
+                            (double) summary_noise_orig->max_noise,
+                            noise_orig.over_count,
+                            summary_noise_orig->over_count,
+                            summary_tightened_bands,
+                            reject_reason, rollback_ok);
                 }
             }
         }
@@ -2193,6 +2635,13 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
                                            use_nbits_gr, &use_nbits_fr,
                                            max_nbits_fr,
                                            &short_redist_mode_safe);
+    }
+    if (safe_steady_tonal_protect_allowed(gfc)) {
+        steady_tonal_protect_retry(gfc, that_, l3_xmin, sfwork_,
+                                   vbrsfmin_, max_nbits_ch,
+                                   ngr, nch, use_nbits_ch,
+                                   use_nbits_gr, &use_nbits_fr,
+                                   max_nbits_fr);
     }
 
     /* experimental: impossible short-block threshold guard (post-second-pass) */
