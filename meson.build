@@ -1,5 +1,5 @@
 project(
-  'lame',
+  'lamer',
   'c',
   version : '3.101.3',
   meson_version : '>=0.60.0',
@@ -51,5 +51,9 @@ subdir('libmp3lame')
 subdir('frontend')
 
 install_headers('include/lame.h')
+install_data(
+  ['README.md', 'CHANGELOG.md', 'COMPATIBILITY.md'],
+  install_dir : join_paths(get_option('datadir'), 'doc', meson.project_name()),
+)
 
 subdir('test')

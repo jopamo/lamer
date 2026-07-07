@@ -66,6 +66,14 @@ test(
   suite : ['smoke'],
 )
 
+test(
+  'lame-cli-identity',
+  python,
+  args : [files('test_cli_identity.py'), lame_exe_path],
+  workdir : meson.current_build_dir(),
+  suite : ['smoke'],
+)
+
 # ── Short matrix tests (fast, run every time) ────────────────────────────────
 
 test(
