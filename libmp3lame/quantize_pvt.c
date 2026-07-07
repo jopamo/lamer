@@ -742,47 +742,46 @@ static  FLOAT
 calc_noise_core_c(const gr_info * const cod_info, int *startline, int l, FLOAT step)
 {
     FLOAT   noise = 0;
-    int     j = *startline;
-    const int *const ix = cod_info->l3_enc;
+    int const j = *startline;
+    int const width = l << 1;
+    const FLOAT *xr = cod_info->xr + j;
+    const FLOAT *const xr_end = xr + width;
+    const int *ix = cod_info->l3_enc + j;
 
     if (j > cod_info->count1) {
-        while (l--) {
+        while (xr < xr_end) {
             FLOAT   temp;
-            temp = cod_info->xr[j];
-            j++;
+            temp = xr[0];
             noise += temp * temp;
-            temp = cod_info->xr[j];
-            j++;
+            temp = xr[1];
             noise += temp * temp;
+            xr += 2;
         }
     }
     else if (j > cod_info->big_values) {
-        FLOAT   ix01[2];
-        ix01[0] = 0;
-        ix01[1] = step;
-        while (l--) {
+        while (xr < xr_end) {
             FLOAT   temp;
-            temp = fabs(cod_info->xr[j]) - ix01[ix[j]];
-            j++;
+            temp = fabs(xr[0]) - step * (FLOAT) ix[0];
             noise += temp * temp;
-            temp = fabs(cod_info->xr[j]) - ix01[ix[j]];
-            j++;
+            temp = fabs(xr[1]) - step * (FLOAT) ix[1];
             noise += temp * temp;
+            xr += 2;
+            ix += 2;
         }
     }
     else {
-        while (l--) {
+        while (xr < xr_end) {
             FLOAT   temp;
-            temp = fabs(cod_info->xr[j]) - pow43[ix[j]] * step;
-            j++;
+            temp = fabs(xr[0]) - pow43[ix[0]] * step;
             noise += temp * temp;
-            temp = fabs(cod_info->xr[j]) - pow43[ix[j]] * step;
-            j++;
+            temp = fabs(xr[1]) - pow43[ix[1]] * step;
             noise += temp * temp;
+            xr += 2;
+            ix += 2;
         }
     }
 
-    *startline = j;
+    *startline = j + width;
     return noise;
 }
 
@@ -814,15 +813,24 @@ calc_noise(gr_info const *const cod_info,
     FLOAT   max_noise = -20.0; /* -200 dB relative to masking */
     int     j = 0;
     const int *scalefac = cod_info->scalefac;
+    int const *const width = cod_info->width;
+    int const *const window = cod_info->window;
+    int const *const subblock_gain = cod_info->subblock_gain;
+    int const global_gain = cod_info->global_gain;
+    int const max_nonzero_coeff = cod_info->max_nonzero_coeff;
+    int const preflag = cod_info->preflag;
+    int const scalefac_shift = cod_info->scalefac_scale + 1;
+    int const psymax = cod_info->psymax;
 
     res->over_SSD = 0;
 
 
-    for (sfb = 0; sfb < cod_info->psymax; sfb++) {
+    for (sfb = 0; sfb < psymax; sfb++) {
+        int const width_sfb = width[sfb];
         int const s =
-            cod_info->global_gain - (((*scalefac++) + (cod_info->preflag ? pretab[sfb] : 0))
-                                     << (cod_info->scalefac_scale + 1))
-            - cod_info->subblock_gain[cod_info->window[sfb]] * 8;
+            global_gain - (((*scalefac++) + (preflag ? pretab[sfb] : 0))
+                           << scalefac_shift)
+            - subblock_gain[window[sfb]] * 8;
         FLOAT const r_l3_xmin = 1.f / *l3_xmin++;
         FLOAT   distort_ = 0.0f;
         FLOAT   noise = 0.0f;
@@ -830,7 +838,7 @@ calc_noise(gr_info const *const cod_info,
         if (prev_noise && (prev_noise->step[sfb] == s)) {
 
             /* use previously computed values */
-            j += cod_info->width[sfb];
+            j += width_sfb;
             distort_ = r_l3_xmin * prev_noise->noise[sfb];
 
             noise = prev_noise->noise_log[sfb];
@@ -838,11 +846,11 @@ calc_noise(gr_info const *const cod_info,
         }
         else {
             FLOAT const step = POW20(s);
-            l = cod_info->width[sfb] >> 1;
+            l = width_sfb >> 1;
 
-            if ((j + cod_info->width[sfb]) > cod_info->max_nonzero_coeff) {
+            if ((j + width_sfb) > max_nonzero_coeff) {
                 int     usefullsize;
-                usefullsize = cod_info->max_nonzero_coeff - j + 1;
+                usefullsize = max_nonzero_coeff - j + 1;
 
                 if (usefullsize > 0)
                     l = usefullsize >> 1;
@@ -871,11 +879,6 @@ calc_noise(gr_info const *const cod_info,
         }
         *distort++ = distort_;
 
-        if (prev_noise) {
-            /* save noise values */
-            prev_noise->global_gain = cod_info->global_gain;;
-        }
-
 
         /*tot_noise *= Max(noise, 1E-20); */
         tot_noise_db += noise;
@@ -893,6 +896,11 @@ calc_noise(gr_info const *const cod_info,
         }
         max_noise = Max(max_noise, noise);
 
+    }
+
+    if (prev_noise) {
+        /* save noise values */
+        prev_noise->global_gain = global_gain;
     }
 
     res->over_count = over;
