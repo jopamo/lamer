@@ -34,6 +34,20 @@ scalar_abs_f32(FLOAT *dst, FLOAT const *src, int n)
 }
 
 static FLOAT
+scalar_abs_max_f32(FLOAT const *src, int n, FLOAT floor)
+{
+    FLOAT m = floor;
+    int i;
+    for (i = 0; i < n; ++i) {
+        FLOAT const x = fabsf(src[i]);
+        if (m < x) {
+            m = x;
+        }
+    }
+    return m;
+}
+
+static FLOAT
 scalar_max_f32(FLOAT const *src, int n)
 {
     FLOAT m = 0.0f;
@@ -75,6 +89,25 @@ scalar_window_mul_f32(FLOAT *dst, FLOAT const *src, FLOAT const *win, int n)
     int i;
     for (i = 0; i < n; ++i) {
         dst[i] = src[i] * win[i];
+    }
+}
+
+static void
+scalar_psy_attack_hpf_f32(FLOAT *dst, FLOAT const *src, int n,
+                          FLOAT const *coef)
+{
+    int i;
+
+    for (i = 0; i < n; ++i) {
+        FLOAT sum1 = src[i + 10];
+        FLOAT sum2 = 0.0f;
+        int j;
+
+        for (j = 0; j < 9; j += 2) {
+            sum1 += coef[j] * (src[i + j] + src[i + 21 - j]);
+            sum2 += coef[j + 1] * (src[i + j + 1] + src[i + 20 - j]);
+        }
+        dst[i] = sum1 + sum2;
     }
 }
 
@@ -209,10 +242,12 @@ lamer_dsp_init_scalar(lamer_dsp *dsp)
 {
     dsp->name = "scalar";
     dsp->abs_f32 = scalar_abs_f32;
+    dsp->abs_max_f32 = scalar_abs_max_f32;
     dsp->max_f32 = scalar_max_f32;
     dsp->sum_sq_f32 = scalar_sum_sq_f32;
     dsp->dot_f32 = scalar_dot_f32;
     dsp->window_mul_f32 = scalar_window_mul_f32;
+    dsp->psy_attack_hpf_f32 = scalar_psy_attack_hpf_f32;
     dsp->reconstructed_energy_f32 = scalar_reconstructed_energy_f32;
     dsp->vbr_calc_sfb_noise_x34 = scalar_vbr_calc_sfb_noise_x34;
     dsp->vbr_quantize_x34 = scalar_vbr_quantize_x34;

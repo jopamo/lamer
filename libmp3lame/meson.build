@@ -45,9 +45,10 @@ foreach arg : ['-fno-semantic-interposition', '-fno-math-errno']
   endif
 endforeach
 
-if not get_option('debug') and cc.has_argument('-ffast-math')
-  libmp3lame_compile_args += '-ffast-math'
-endif
+# Do not add -ffast-math implicitly.  MP3 encoder decisions are sensitive to
+# FP reassociation, contraction and special-value assumptions; scalar/SIMD
+# comparisons must run under the same conservative FP semantics unless the
+# caller explicitly opts into different CFLAGS outside this build file.
 
 if simd_x86_avx2
   libmp3lame_avx2 = static_library(

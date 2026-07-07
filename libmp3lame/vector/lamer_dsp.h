@@ -23,11 +23,14 @@ typedef struct lamer_dsp_s {
     char const *name;
 
     void  (*abs_f32)(FLOAT *dst, FLOAT const *src, int n);
+    FLOAT (*abs_max_f32)(FLOAT const *src, int n, FLOAT floor);
     FLOAT (*max_f32)(FLOAT const *src, int n);
     FLOAT (*sum_sq_f32)(FLOAT const *src, int n);
     FLOAT (*dot_f32)(FLOAT const *a, FLOAT const *b, int n);
     void  (*window_mul_f32)(FLOAT *dst, FLOAT const *src,
                             FLOAT const *win, int n);
+    void  (*psy_attack_hpf_f32)(FLOAT *dst, FLOAT const *src,
+                                int n, FLOAT const *coef);
 
     /*
      * Reconstructed-energy helper for steady-tonal metrics.
@@ -43,6 +46,8 @@ typedef struct lamer_dsp_s {
     /*
      * VBR quantize support.  These are decision-path helpers.  Implementations
      * must preserve scalar conversion and reduction order, or stay scalar.
+     * Default dispatch may deliberately leave these pointers on scalar when
+     * profiling shows the exact SIMD implementation loses to optimized scalar.
      */
     FLOAT (*vbr_calc_sfb_noise_x34)(FLOAT const *xr, FLOAT const *xr34,
                                     unsigned int bw, uint8_t sf);

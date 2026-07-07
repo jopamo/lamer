@@ -1287,8 +1287,8 @@ calc_sfb_noise_x34(lamer_dsp const *dsp,
 
 
 struct calc_noise_cache {
-    int     valid;
-    FLOAT   value;
+    unsigned char valid[256];
+    FLOAT   value[256];
 };
 
 typedef struct calc_noise_cache calc_noise_cache_t;
@@ -1299,30 +1299,30 @@ tri_calc_sfb_noise_x34(lamer_dsp const *dsp,
                        const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned int bw,
                        uint8_t sf, calc_noise_cache_t * did_it)
 {
-    if (did_it[sf].valid == 0) {
-        did_it[sf].valid = 1;
-        did_it[sf].value = calc_sfb_noise_x34(dsp, xr, xr34, bw, sf);
+    if (did_it->valid[sf] == 0) {
+        did_it->valid[sf] = 1;
+        did_it->value[sf] = calc_sfb_noise_x34(dsp, xr, xr34, bw, sf);
     }
-    if (l3_xmin < did_it[sf].value) {
+    if (l3_xmin < did_it->value[sf]) {
         return 1;
     }
     if (sf < 255) {
         uint8_t const sf_x = sf + 1;
-        if (did_it[sf_x].valid == 0) {
-            did_it[sf_x].valid = 1;
-            did_it[sf_x].value = calc_sfb_noise_x34(dsp, xr, xr34, bw, sf_x);
+        if (did_it->valid[sf_x] == 0) {
+            did_it->valid[sf_x] = 1;
+            did_it->value[sf_x] = calc_sfb_noise_x34(dsp, xr, xr34, bw, sf_x);
         }
-        if (l3_xmin < did_it[sf_x].value) {
+        if (l3_xmin < did_it->value[sf_x]) {
             return 1;
         }
     }
     if (sf > 0) {
         uint8_t const sf_x = sf - 1;
-        if (did_it[sf_x].valid == 0) {
-            did_it[sf_x].valid = 1;
-            did_it[sf_x].value = calc_sfb_noise_x34(dsp, xr, xr34, bw, sf_x);
+        if (did_it->valid[sf_x] == 0) {
+            did_it->valid[sf_x] = 1;
+            did_it->value[sf_x] = calc_sfb_noise_x34(dsp, xr, xr34, bw, sf_x);
         }
-        if (l3_xmin < did_it[sf_x].value) {
+        if (l3_xmin < did_it->value[sf_x]) {
             return 1;
         }
     }
@@ -1372,16 +1372,16 @@ find_scalefac_x34(const algo_t *that,
                   uint8_t sf_min)
 {
     lamer_dsp const *const dsp = &that->gfc->dsp;
-    calc_noise_cache_t did_it[256];
+    calc_noise_cache_t did_it;
     uint8_t sf = 128, sf_ok = 255, delsf = 128, seen_good_one = 0, i;
-    memset(did_it, 0, sizeof(did_it));
+    memset(did_it.valid, 0, sizeof(did_it.valid));
     for (i = 0; i < 8; ++i) {
         delsf >>= 1;
         if (sf <= sf_min) {
             sf += delsf;
         }
         else {
-            uint8_t const bad = tri_calc_sfb_noise_x34(dsp, xr, xr34, l3_xmin, bw, sf, did_it);
+            uint8_t const bad = tri_calc_sfb_noise_x34(dsp, xr, xr34, l3_xmin, bw, sf, &did_it);
             if (bad) {  /* distortion.  try a smaller scalefactor */
                 sf -= delsf;
             }

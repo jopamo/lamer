@@ -3,6 +3,8 @@
 #endif
 
 #include <arm_neon.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "lame.h"
 #include "machine.h"
@@ -10,6 +12,19 @@
 #include "util.h"
 #include "quantize_pvt.h"
 #include "vector/lamer_dsp.h"
+
+static int
+neon_experimental_quant_simd_enabled(void)
+{
+    char const *const env = getenv("LAMER_SIMD_EXPERIMENTAL_QUANT");
+
+    return env != 0
+        && *env != '\0'
+        && strcmp(env, "0") != 0
+        && strcmp(env, "off") != 0
+        && strcmp(env, "false") != 0
+        && strcmp(env, "disabled") != 0;
+}
 
 static void
 neon_abs_f32(FLOAT *dst, FLOAT const *src, int n)
@@ -23,6 +38,32 @@ neon_abs_f32(FLOAT *dst, FLOAT const *src, int n)
     for (; i < n; ++i) {
         dst[i] = fabsf(src[i]);
     }
+}
+
+static FLOAT
+neon_abs_max_f32(FLOAT const *src, int n, FLOAT floor)
+{
+    float32x4_t maxv = vdupq_n_f32(floor);
+    FLOAT tmp[4];
+    FLOAT m = floor;
+    int i = 0;
+
+    for (; i + 4 <= n; i += 4) {
+        float32x4_t const x = vabsq_f32(vld1q_f32(src + i));
+        maxv = vmaxq_f32(maxv, x);
+    }
+    vst1q_f32(tmp, maxv);
+    if (m < tmp[0]) m = tmp[0];
+    if (m < tmp[1]) m = tmp[1];
+    if (m < tmp[2]) m = tmp[2];
+    if (m < tmp[3]) m = tmp[3];
+    for (; i < n; ++i) {
+        FLOAT const x = fabsf(src[i]);
+        if (m < x) {
+            m = x;
+        }
+    }
+    return m;
 }
 
 static FLOAT
@@ -109,6 +150,43 @@ neon_window_mul_f32(FLOAT *dst, FLOAT const *src, FLOAT const *win, int n)
     }
     for (; i < n; ++i) {
         dst[i] = src[i] * win[i];
+    }
+}
+
+static void
+neon_psy_attack_hpf_f32(FLOAT *dst, FLOAT const *src, int n,
+                        FLOAT const *coef)
+{
+    int i = 0;
+
+    for (; i + 4 <= n; i += 4) {
+        float32x4_t sum1 = vld1q_f32(src + i + 10);
+        float32x4_t sum2 = vdupq_n_f32(0.0f);
+        int j;
+
+        for (j = 0; j < 9; j += 2) {
+            float32x4_t const a1 = vld1q_f32(src + i + j);
+            float32x4_t const b1 = vld1q_f32(src + i + 21 - j);
+            float32x4_t const c1 = vdupq_n_f32(coef[j]);
+            float32x4_t const a2 = vld1q_f32(src + i + j + 1);
+            float32x4_t const b2 = vld1q_f32(src + i + 20 - j);
+            float32x4_t const c2 = vdupq_n_f32(coef[j + 1]);
+
+            sum1 = vaddq_f32(sum1, vmulq_f32(c1, vaddq_f32(a1, b1)));
+            sum2 = vaddq_f32(sum2, vmulq_f32(c2, vaddq_f32(a2, b2)));
+        }
+        vst1q_f32(dst + i, vaddq_f32(sum1, sum2));
+    }
+    for (; i < n; ++i) {
+        FLOAT sum1 = src[i + 10];
+        FLOAT sum2 = 0.0f;
+        int j;
+
+        for (j = 0; j < 9; j += 2) {
+            sum1 += coef[j] * (src[i + j] + src[i + 21 - j]);
+            sum2 += coef[j + 1] * (src[i + j + 1] + src[i + 20 - j]);
+        }
+        dst[i] = sum1 + sum2;
     }
 }
 
@@ -262,11 +340,15 @@ lamer_dsp_init_aarch64_neon(lamer_dsp *dsp)
 {
     dsp->name = "neon";
     dsp->abs_f32 = neon_abs_f32;
+    dsp->abs_max_f32 = neon_abs_max_f32;
     dsp->max_f32 = neon_max_f32;
     dsp->sum_sq_f32 = neon_sum_sq_f32;
     dsp->dot_f32 = neon_dot_f32;
     dsp->window_mul_f32 = neon_window_mul_f32;
+    dsp->psy_attack_hpf_f32 = neon_psy_attack_hpf_f32;
     dsp->reconstructed_energy_f32 = neon_reconstructed_energy_f32;
-    dsp->vbr_calc_sfb_noise_x34 = neon_vbr_calc_sfb_noise_x34;
-    dsp->vbr_quantize_x34 = neon_vbr_quantize_x34;
+    if (neon_experimental_quant_simd_enabled()) {
+        dsp->vbr_calc_sfb_noise_x34 = neon_vbr_calc_sfb_noise_x34;
+        dsp->vbr_quantize_x34 = neon_vbr_quantize_x34;
+    }
 }

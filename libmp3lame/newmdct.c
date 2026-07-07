@@ -432,10 +432,11 @@ window_subband(const sample_t * x1, FLOAT a[SBLIMIT])
 {
     int     i;
     FLOAT const *wp = enwindow + 10;
+    FLOAT *ap = a;
 
     const sample_t *x2 = &x1[238 - 14 - 286];
 
-    for (i = -15; i < 0; i++) {
+    for (i = 0; i < 15; i++) {
         FLOAT   w, s, t;
 
         w = wp[-10];
@@ -495,8 +496,9 @@ window_subband(const sample_t * x1, FLOAT a[SBLIMIT])
          */
         s *= wp[6];
         w = t - s;
-        a[30 + i * 2] = t + s;
-        a[31 + i * 2] = wp[7] * w;
+        ap[0] = t + s;
+        ap[1] = wp[7] * w;
+        ap += 2;
         wp += 18;
         x1--;
         x2++;

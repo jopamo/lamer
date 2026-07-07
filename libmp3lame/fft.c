@@ -62,7 +62,7 @@ static const FLOAT costab[TRI_SIZE * 2] = {
 };
 
 static void
-fht(FLOAT * fz, int n)
+fht(FLOAT * restrict fz, int n)
 {
     const FLOAT *tri = costab;
     int     k4;

@@ -7,10 +7,12 @@ import tempfile
 from pathlib import Path
 
 
-def run_encode(lame: Path, input_wav: Path, simd: str, tmp: Path) -> bytes:
-    output = tmp / f"simd-{simd}.mp3"
+def run_encode(lame: Path, input_wav: Path, label: str, simd: str, tmp: Path, extra_env=None) -> bytes:
+    output = tmp / f"simd-{label}.mp3"
     env = os.environ.copy()
     env["LAMER_SIMD"] = simd
+    if extra_env:
+        env.update(extra_env)
     subprocess.run(
         [str(lame), "--quiet", "-V", "0", str(input_wav), str(output)],
         cwd=tmp,
@@ -21,7 +23,7 @@ def run_encode(lame: Path, input_wav: Path, simd: str, tmp: Path) -> bytes:
     )
     data = output.read_bytes()
     if not data:
-        raise AssertionError(f"empty output for LAMER_SIMD={simd}")
+        raise AssertionError(f"empty output for {label}")
     return data
 
 
@@ -36,12 +38,22 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="lamer-simd-identity-", dir=".") as td:
         tmp = Path(td)
         for input_wav in input_wavs:
-            scalar = run_encode(lame, input_wav, "0", tmp)
-            for simd in ("auto", "sse2", "avx2", "neon"):
-                candidate = run_encode(lame, input_wav, simd, tmp)
+            scalar = run_encode(lame, input_wav, "0", "0", tmp)
+            cases = [
+                ("auto", "auto", None),
+                ("sse2", "sse2", None),
+                ("avx2", "avx2", None),
+                ("neon", "neon", None),
+                ("auto-quant-exp", "auto", {"LAMER_SIMD_EXPERIMENTAL_QUANT": "1"}),
+                ("sse2-quant-exp", "sse2", {"LAMER_SIMD_EXPERIMENTAL_QUANT": "1"}),
+                ("avx2-quant-exp", "avx2", {"LAMER_SIMD_EXPERIMENTAL_QUANT": "1"}),
+                ("neon-quant-exp", "neon", {"LAMER_SIMD_EXPERIMENTAL_QUANT": "1"}),
+            ]
+            for label, simd, extra_env in cases:
+                candidate = run_encode(lame, input_wav, label, simd, tmp, extra_env)
                 if candidate != scalar:
                     print(
-                        f"{input_wav.name}: LAMER_SIMD={simd} changed MP3 output "
+                        f"{input_wav.name}: {label} changed MP3 output "
                         "relative to LAMER_SIMD=0",
                         file=sys.stderr,
                     )

@@ -915,16 +915,7 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
         /* apply high pass filter of fs/4 */
         const sample_t *const firbuf = &buffer[chn][576 - 350 - NSFIRLEN + 192];
         assert(dimension_of(fircoef) == ((NSFIRLEN - 1) / 2));
-        for (i = 0; i < 576; i++) {
-            FLOAT   sum1, sum2;
-            sum1 = firbuf[i + 10];
-            sum2 = 0.0;
-            for (j = 0; j < ((NSFIRLEN - 1) / 2) - 1; j += 2) {
-                sum1 += fircoef[j] * (firbuf[i + j] + firbuf[i + NSFIRLEN - j]);
-                sum2 += fircoef[j + 1] * (firbuf[i + j + 1] + firbuf[i + NSFIRLEN - j - 1]);
-            }
-            ns_hpfsmpl[chn][i] = sum1 + sum2;
-        }
+        gfc->dsp.psy_attack_hpf_f32(ns_hpfsmpl[chn], firbuf, 576, fircoef);
         masking_ratio[gr_out][chn].en = psv->en[chn];
         masking_ratio[gr_out][chn].thm = psv->thm[chn];
         if (n_chn_psy > 2) {
@@ -963,9 +954,8 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
         for (i = 0; i < 9; i++) {
             FLOAT const *const pfe = pf + 576 / 9;
             FLOAT   p = 1.;
-            for (; pf < pfe; pf++)
-                if (p < fabs(*pf))
-                    p = fabs(*pf);
+            p = gfc->dsp.abs_max_f32(pf, (int) (pfe - pf), p);
+            pf = pfe;
             psv->last_en_subshort[chn][i] = en_subshort[i + 3] = p;
             en_short[1 + i / 3] += p;
             if (p > en_subshort[i + 3 - 2]) {
