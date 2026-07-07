@@ -983,7 +983,7 @@ do_gain_analysis(lame_internal_flags * gfc, unsigned char* buffer, int minimum)
              * samples_out = number of samples output */
 
             /* set the lenght of the mp3 input buffer to zero, so that in the
-             * next iteration of the loop we will be querying mpglib about
+             * next iteration of the loop we will be querying the decoder about
              * buffered data */
             mp3_in = 0;
 

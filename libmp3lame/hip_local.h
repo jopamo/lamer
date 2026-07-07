@@ -18,8 +18,8 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  */
-#ifndef _MPGLIB_H_
-#define _MPGLIB_H_
+#ifndef HIP_LOCAL_H
+#define HIP_LOCAL_H
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -44,27 +44,7 @@ typedef struct plotting_data plotting_data;
 #endif
 
 
-extern void lame_report_fnc(lame_report_function f, const char *format, ...);
-
-#ifdef HAVE_MPGLIB
-struct buf {
-    unsigned char *pnt;
-    long    size;
-    long    pos;
-    struct buf *next;
-    struct buf *prev;
-};
-
-struct framebuf {
-    struct buf *buf;
-    long    pos;
-    struct frame *next;
-    struct frame *prev;
-};
-
-#endif
-
-typedef struct mpstr_tag {
+struct hip_global_struct {
 #ifdef HAVE_MPG123
     mpg123_handle *mh;
     struct mpg123_moreinfo mi;
@@ -74,13 +54,6 @@ typedef struct mpstr_tag {
     lame_report_function report_msg;
     lame_report_function report_dbg;
     lame_report_function report_err;
-} MPSTR, *PMPSTR;
+};
 
-#ifdef HAVE_MPGLIB
-#define MP3_ERR -1
-#define MP3_OK  0
-#define MP3_NEED_MORE 1
-#endif
-
-
-#endif /* _MPGLIB_H_ */
+#endif /* HIP_LOCAL_H */

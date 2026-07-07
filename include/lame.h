@@ -227,7 +227,7 @@ int CDECL lame_get_analysis(const lame_global_flags *);
 int CDECL lame_set_bWriteVbrTag(lame_global_flags *, int);
 int CDECL lame_get_bWriteVbrTag(const lame_global_flags *);
 
-/* 1=decode only.  use lame/mpglib to convert mp3 to wav.  default=0 */
+/* 1=decode only. use lame to decode MPEG audio to wav. default=0 */
 int CDECL lame_set_decode_only(lame_global_flags *, int);
 int CDECL lame_get_decode_only(const lame_global_flags *);
 
@@ -931,8 +931,8 @@ int  CDECL lame_close (lame_global_flags *);
  *
  * decoding
  *
- * a simple interface to mpglib, part of mpg123, is also included if
- * libmp3lame is compiled with HAVE_MPGLIB
+ * a simple MPEG decoding interface is included when libmp3lame
+ * is compiled with libmpg123 support
  *
  *********************************************************************/
 
@@ -951,11 +951,11 @@ typedef struct {
   int mode_ext;        /* mp3 frame type                                 */
   int framesize;       /* number of samples per mp3 frame                */
 
-  /* this data is only computed if mpglib detects a Xing VBR header */
+  /* this data is only computed if the decoder detects a Xing VBR header */
   unsigned long nsamp; /* number of samples in mp3 file.                 */
   int totalframes;     /* total number of frames in mp3 file             */
 
-  /* this data is not currently computed by the mpglib routines */
+  /* this data is not currently computed by the decoder routines */
   int framenum;        /* frames decoded counter                         */
 } mp3data_struct;
 

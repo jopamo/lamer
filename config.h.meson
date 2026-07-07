@@ -9,6 +9,7 @@
 #mesondefine HAVE_LANGINFO_H
 #mesondefine HAVE_LIMITS_H
 #mesondefine HAVE_MEMCPY
+#mesondefine HAVE_MPG123
 #mesondefine HAVE_STDINT_H
 #mesondefine HAVE_STRCHR
 #mesondefine HAVE_UNISTD_H

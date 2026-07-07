@@ -11,11 +11,17 @@ frontend_sources = files(
   'usage.c',
 )
 
+lame_frontend_deps = [libm]
+
+if mpg123_dep.found()
+  lame_frontend_deps += mpg123_dep
+endif
+
 lame_exe = executable(
   'lame',
   frontend_sources,
   include_directories : core_includes,
   link_with : libmp3lame,
-  dependencies : [libm],
+  dependencies : lame_frontend_deps,
   install : true,
 )

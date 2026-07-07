@@ -5,8 +5,8 @@ libmp3lame_sources = files(
   'fft.c',
   'gain_analysis.c',
   'id3tag.c',
+  'hip_decode.c',
   'lame.c',
-  'mpglib_interface.c',
   'newmdct.c',
   'presets.c',
   'psymodel.c',
@@ -23,6 +23,11 @@ libmp3lame_sources = files(
 )
 
 libmp3lame_compile_args = []
+libmp3lame_deps = [libm]
+
+if mpg123_dep.found()
+  libmp3lame_deps += mpg123_dep
+endif
 
 foreach arg : ['-fno-semantic-interposition', '-fno-math-errno']
   if cc.has_argument(arg)
@@ -39,7 +44,7 @@ libmp3lame = library(
   libmp3lame_sources,
   include_directories : core_includes,
   c_args : libmp3lame_compile_args,
-  dependencies : [libm],
+  dependencies : libmp3lame_deps,
   install : true,
   soversion : '0',
 )

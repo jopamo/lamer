@@ -281,7 +281,7 @@ lame_get_bWriteVbrTag(const lame_global_flags * gfp)
 
 
 
-/* decode only, use lame/mpglib to convert mp3 to wav */
+/* decode only, use lame to decode MPEG audio to wav */
 int
 lame_set_decode_only(lame_global_flags * gfp, int decode_only)
 {

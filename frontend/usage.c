@@ -115,8 +115,7 @@ frontend_print_license(FILE * const fp)
     fprintf(fp,
             "Copyright (c) 1999-2011 by The LAME Project\n"
             "Copyright (c) 1999,2000,2001 by Mark Taylor\n"
-            "Copyright (c) 1998 by Michael Cheng\n"
-            "Copyright (c) 1995,1996,1997 by Michael Hipp: mpglib\n" "\n");
+            "Copyright (c) 1998 by Michael Cheng\n" "\n");
     fprintf(fp,
             "This library is free software; you can redistribute it and/or\n"
             "modify it under the terms of the GNU Library General Public\n"
@@ -304,7 +303,7 @@ long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramNam
             "    --ignorelength  ignore file length in WAV header\n"
             "    --gain <arg>    apply Gain adjustment in decibels, range -20.0 to +12.0\n"
            );
-#if (defined HAVE_MPGLIB || defined AMIGA_MPEGA)
+#if (defined HAVE_MPG123 || defined AMIGA_MPEGA)
     fprintf(fp,
             "    --mp1input      input file is a MPEG Layer I   file\n"
             "    --mp2input      input file is a MPEG Layer II  file\n"

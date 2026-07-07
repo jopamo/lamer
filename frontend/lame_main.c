@@ -182,8 +182,8 @@ printInputFormat(lame_t gfp)
  * init_infile(), call this routine to read the input MP3 file
  * and output .wav data to the specified file pointer*/
 /* lame_decoder will ignore the first 528 samples, since these samples
- * represent the mpglib delay (and are all 0).  skip = number of additional
- * samples to skip, to (for example) compensate for the encoder delay */
+ * represent decoder delay. skip = number of additional
+ * samples to skip, to compensate for encoder delay. */
 
 static int
 lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)

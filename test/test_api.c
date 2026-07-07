@@ -1807,30 +1807,40 @@ test_hip_decode_stubs(void)
     int ret;
 
     ret = hip_decode(hip, mp3buf, mp3len, dec_l, dec_r);
-#ifndef HAVE_MPG123
+#ifdef HAVE_MPG123
+    ASSERT(ret >= 0, "hip_decode should not fail with mpg123");
+#else
     ASSERT(ret < 0, "hip_decode should return -1 (no mpg123)");
 #endif
 
     ret = hip_decode_headers(hip, mp3buf, mp3len, dec_l, dec_r, &md);
-#ifndef HAVE_MPG123
+#ifdef HAVE_MPG123
+    ASSERT(ret >= 0, "hip_decode_headers should not fail with mpg123");
+#else
     ASSERT(ret < 0, "hip_decode_headers should return -1 (no mpg123)");
 #endif
 
     if (hip2) {
         ret = hip_decode1(hip2, mp3buf, mp3len, dec_l, dec_r);
-#ifndef HAVE_MPG123
+#ifdef HAVE_MPG123
+        ASSERT(ret >= 0, "hip_decode1 should not fail with mpg123");
+#else
         ASSERT(ret < 0, "hip_decode1 should return -1 (no mpg123)");
 #endif
 
         ret = hip_decode1_headers(hip2, mp3buf, mp3len, dec_l, dec_r, &md);
-#ifndef HAVE_MPG123
+#ifdef HAVE_MPG123
+        ASSERT(ret >= 0, "hip_decode1_headers should not fail with mpg123");
+#else
         ASSERT(ret < 0, "hip_decode1_headers should return -1 (no mpg123)");
 #endif
 
         int enc_delay, enc_padding;
         ret = hip_decode1_headersB(hip2, mp3buf, mp3len, dec_l, dec_r,
                                    &md, &enc_delay, &enc_padding);
-#ifndef HAVE_MPG123
+#ifdef HAVE_MPG123
+        ASSERT(ret >= 0, "hip_decode1_headersB should not fail with mpg123");
+#else
         ASSERT(ret < 0, "hip_decode1_headersB should return -1 (no mpg123)");
 #endif
 

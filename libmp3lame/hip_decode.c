@@ -28,10 +28,7 @@
 # include <config.h>
 #endif
 
-#define hip_global_struct mpstr_tag
-
-/* for mpstr_tag */
-#include "mpglib/mpglib.h"
+#include "hip_local.h"
 
 #include "lame.h"
 #include "machine.h"
@@ -375,7 +372,6 @@ void hip_finish_pinfo(hip_t hip)
 #ifndef NOANALYSIS
 #ifdef HAVE_MPG123
     struct mpg123_frameinfo fi;
-    long rate;
     plotting_data *pinfo = hip->pinfo;
     if(!hip || !hip->pinfo)
         return;
@@ -433,4 +429,4 @@ void hip_set_msgf  (hip_t hip, lame_report_function func)
 #endif
 }
 
-/* end of mpglib_interface.c */
+/* end of hip_decode.c */
