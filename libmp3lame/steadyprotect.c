@@ -57,6 +57,50 @@
 #ifndef STEADY_TONAL_MIN_BAND_COUNT
 #define STEADY_TONAL_MIN_BAND_COUNT 1
 #endif
+#ifndef STEADY_TONAL_COMMIT_EVENT_CAP
+#define STEADY_TONAL_COMMIT_EVENT_CAP 1024
+#endif
+
+typedef struct {
+    int     frame;
+    int     gr;
+    int     ch;
+    int     block_type;
+    int     selected_bands;
+    int     best_bits;
+    FLOAT   failure_before_sum;
+    FLOAT   failure_after_sum;
+    FLOAT   max_before;
+    FLOAT   max_after;
+    unsigned int selected_sfb_mask_lo;
+    unsigned int selected_sfb_mask_hi;
+} steady_tonal_commit_event_t;
+
+struct steady_tonal_stats_s {
+    unsigned long long frames_seen;
+    unsigned long long granules_seen;
+    unsigned long long long_granules_seen;
+
+    unsigned long long candidate_granules;
+    unsigned long long retry_granules;
+    unsigned long long accept_granules;
+    unsigned long long reject_granules;
+
+    unsigned long long selected_bands_total;
+    unsigned long long accepted_selected_bands_total;
+
+    unsigned long long accept_by_sfb[SBMAX_l];
+    unsigned long long candidate_by_sfb[SBMAX_l];
+
+    double  failure_before_sum;
+    double  failure_after_sum;
+    double  max_failure_before;
+    double  max_failure_after;
+
+    unsigned int commit_event_count;
+    unsigned int commit_event_overflow;
+    steady_tonal_commit_event_t commit_events[STEADY_TONAL_COMMIT_EVENT_CAP];
+};
 
 static steady_tonal_profile_t const steady_tonal_profiles[] = {
     { -0.75f, 0.84139514165f },
@@ -67,6 +111,33 @@ int
 steady_tonal_protect_mode(void)
 {
     return LAME_STEADY_TONAL_PROTECT_MODE;
+}
+
+static int
+steady_tonal_debug_requested(void)
+{
+    char const *const env = getenv("LAME_STEADY_DEBUG");
+
+    return env != 0 && *env != '\0';
+}
+
+void
+steady_tonal_stats_init_if_requested(lame_internal_flags *gfc)
+{
+    if (gfc == 0 || gfc->steady_tonal_stats != 0 || !steady_tonal_debug_requested()) {
+        return;
+    }
+
+    gfc->steady_tonal_stats = lame_calloc(steady_tonal_stats_t, 1);
+}
+
+void
+steady_tonal_stats_free(lame_internal_flags *gfc)
+{
+    if (gfc != 0 && gfc->steady_tonal_stats != 0) {
+        free(gfc->steady_tonal_stats);
+        gfc->steady_tonal_stats = 0;
+    }
 }
 
 static FLOAT
@@ -321,28 +392,26 @@ steady_tonal_selected_failure(gr_info const *cod_info,
 }
 
 void
-steady_tonal_stats_note_frame(lame_internal_flags *gfc)
+steady_tonal_stats_note_frame(steady_tonal_stats_t *stats)
 {
-    gfc->steady_tonal_stats.frames_seen++;
+    stats->frames_seen++;
 }
 
 void
-steady_tonal_stats_note_granule(lame_internal_flags *gfc,
+steady_tonal_stats_note_granule(steady_tonal_stats_t *stats,
                                 gr_info const *cod_info)
 {
-    gfc->steady_tonal_stats.granules_seen++;
+    stats->granules_seen++;
     if (cod_info->block_type != SHORT_TYPE) {
-        gfc->steady_tonal_stats.long_granules_seen++;
+        stats->long_granules_seen++;
     }
 }
 
 void
-steady_tonal_stats_note_candidate(lame_internal_flags *gfc,
+steady_tonal_stats_note_candidate(steady_tonal_stats_t *stats,
                                   steady_tonal_candidate_t const *candidate,
                                   steady_tonal_failure_t const *before)
 {
-    steady_tonal_stats_t *const stats = &gfc->steady_tonal_stats;
-
     stats->candidate_granules++;
     stats->selected_bands_total += candidate->sfb_count;
     stats->failure_before_sum += before->failure_db_sum;
@@ -352,27 +421,26 @@ steady_tonal_stats_note_candidate(lame_internal_flags *gfc,
 }
 
 void
-steady_tonal_stats_note_retry(lame_internal_flags *gfc)
+steady_tonal_stats_note_retry(steady_tonal_stats_t *stats)
 {
-    gfc->steady_tonal_stats.retry_granules++;
+    stats->retry_granules++;
 }
 
 void
-steady_tonal_stats_note_reject(lame_internal_flags *gfc)
+steady_tonal_stats_note_reject(steady_tonal_stats_t *stats)
 {
-    gfc->steady_tonal_stats.reject_granules++;
+    stats->reject_granules++;
 }
 
 void
-steady_tonal_stats_note_accept(lame_internal_flags *gfc,
+steady_tonal_stats_note_accept(steady_tonal_stats_t *stats,
+                               int frame,
                                gr_info const *cod_info,
                                int gr, int ch, int best_bits,
                                steady_tonal_candidate_t const *candidate,
                                steady_tonal_failure_t const *before,
                                steady_tonal_failure_t const *after)
 {
-    steady_tonal_stats_t *const stats = &gfc->steady_tonal_stats;
-
     stats->accept_granules++;
     stats->accepted_selected_bands_total += candidate->sfb_count;
     stats->failure_after_sum += after->failure_db_sum;
@@ -383,7 +451,7 @@ steady_tonal_stats_note_accept(lame_internal_flags *gfc,
     if (stats->commit_event_count < STEADY_TONAL_COMMIT_EVENT_CAP) {
         steady_tonal_commit_event_t *const ev =
             &stats->commit_events[stats->commit_event_count++];
-        ev->frame = gfc->ov_enc.frame_number;
+        ev->frame = frame;
         ev->gr = gr;
         ev->ch = ch;
         ev->block_type = cod_info->block_type;
@@ -404,11 +472,10 @@ steady_tonal_stats_note_accept(lame_internal_flags *gfc,
 void
 steady_tonal_dump_stats_if_requested(lame_internal_flags const *gfc)
 {
-    char const *const env = getenv("LAME_STEADY_DEBUG");
-    steady_tonal_stats_t const *const stats = &gfc->steady_tonal_stats;
+    steady_tonal_stats_t const *const stats = gfc->steady_tonal_stats;
     unsigned int i;
 
-    if (env == 0 || *env == '\0') {
+    if (stats == 0) {
         return;
     }
 

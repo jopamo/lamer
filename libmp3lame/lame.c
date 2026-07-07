@@ -589,6 +589,7 @@ lame_init_params(lame_global_flags * gfp)
     gfc->report_msg = gfp->report.msgf;
     gfc->report_dbg = gfp->report.debugf;
     gfc->report_err = gfp->report.errorf;
+    steady_tonal_stats_init_if_requested(gfc);
 
     if (gfp->asm_optimizations.amd3dnow)
         gfc->CPU_features.AMD_3DNow = has_3DNow();

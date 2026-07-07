@@ -793,11 +793,14 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                            int max_nbits_fr)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
+    steady_tonal_stats_t *const steady_stats = gfc->steady_tonal_stats;
     int const steady_mode = steady_tonal_protect_mode();
     int const profiles_available = steady_tonal_profile_count();
     int gr2, ch2;
 
-    steady_tonal_stats_note_frame(gfc);
+    if (steady_stats != 0) {
+        steady_tonal_stats_note_frame(steady_stats);
+    }
     for (gr2 = 0; gr2 < ngr; ++gr2) {
         for (ch2 = 0; ch2 < nch; ++ch2) {
             algo_t *that = &that_[gr2][ch2];
@@ -811,10 +814,12 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
             char const *candidate_reason = "eligible";
             int candidate;
 
+            if (steady_stats != 0) {
+                steady_tonal_stats_note_granule(steady_stats, cod_info);
+            }
             if (cod_info->block_type == SHORT_TYPE) {
                 continue;
             }
-            steady_tonal_stats_note_granule(gfc, cod_info);
 
             calc_noise(cod_info, l3_xmin[gr2][ch2], old_distort, &noise_orig, 0);
             candidate = steady_tonal_candidate_select(gfc, cod_info, gr2, psy_ch,
@@ -862,10 +867,14 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
             if (!candidate) {
                 continue;
             }
-            steady_tonal_stats_note_candidate(gfc, &candidate_info,
-                                              &old_selected_failure);
+            if (steady_stats != 0) {
+                steady_tonal_stats_note_candidate(steady_stats, &candidate_info,
+                                                  &old_selected_failure);
+            }
             if (steady_mode == LAME_STEADY_TONAL_PROTECT_MODE_METRIC) {
-                steady_tonal_stats_note_reject(gfc);
+                if (steady_stats != 0) {
+                    steady_tonal_stats_note_reject(steady_stats);
+                }
                 continue;
             }
 
@@ -902,7 +911,9 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                        sizeof(saved_vbrsfmin));
                 memcpy(saved_scfsi, gfc->l3_side.scfsi,
                        sizeof(saved_scfsi));
-                steady_tonal_stats_note_retry(gfc);
+                if (steady_stats != 0) {
+                    steady_tonal_stats_note_retry(steady_stats);
+                }
 
                 for (profile_index = 0;
                      profile_index < profiles_available;
@@ -1139,10 +1150,15 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                     use_nbits_ch[gr2][ch2] = best_nbits;
                     use_nbits_gr[gr2] += (best_nbits - old_nbits);
                     *use_nbits_fr += (best_nbits - old_nbits);
-                    steady_tonal_stats_note_accept(gfc, cod_info, gr2, ch2,
-                                                   best_bits, &candidate_info,
-                                                   &old_selected_failure,
-                                                   &best_selected_failure);
+                    if (steady_stats != 0) {
+                        steady_tonal_stats_note_accept(steady_stats,
+                                                       gfc->ov_enc.frame_number,
+                                                       cod_info, gr2, ch2,
+                                                       best_bits,
+                                                       &candidate_info,
+                                                       &old_selected_failure,
+                                                       &best_selected_failure);
+                    }
                 }
                 else {
                     *cod_info = saved_gi;
@@ -1152,7 +1168,9 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                            sizeof(saved_vbrsfmin));
                     memcpy(gfc->l3_side.scfsi, saved_scfsi,
                            sizeof(saved_scfsi));
-                    steady_tonal_stats_note_reject(gfc);
+                    if (steady_stats != 0) {
+                        steady_tonal_stats_note_reject(steady_stats);
+                    }
                 }
 
                 if (cfg->analysis) {

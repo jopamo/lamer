@@ -43,6 +43,12 @@ typedef struct {
 int
 steady_tonal_protect_mode(void);
 
+void
+steady_tonal_stats_init_if_requested(lame_internal_flags *gfc);
+
+void
+steady_tonal_stats_free(lame_internal_flags *gfc);
+
 int
 safe_steady_tonal_protect_allowed(lame_internal_flags const *gfc);
 
@@ -68,25 +74,26 @@ steady_tonal_selected_failure(gr_info const *cod_info,
                               steady_tonal_failure_t *failure);
 
 void
-steady_tonal_stats_note_frame(lame_internal_flags *gfc);
+steady_tonal_stats_note_frame(steady_tonal_stats_t *stats);
 
 void
-steady_tonal_stats_note_granule(lame_internal_flags *gfc,
+steady_tonal_stats_note_granule(steady_tonal_stats_t *stats,
                                 gr_info const *cod_info);
 
 void
-steady_tonal_stats_note_candidate(lame_internal_flags *gfc,
+steady_tonal_stats_note_candidate(steady_tonal_stats_t *stats,
                                   steady_tonal_candidate_t const *candidate,
                                   steady_tonal_failure_t const *before);
 
 void
-steady_tonal_stats_note_retry(lame_internal_flags *gfc);
+steady_tonal_stats_note_retry(steady_tonal_stats_t *stats);
 
 void
-steady_tonal_stats_note_reject(lame_internal_flags *gfc);
+steady_tonal_stats_note_reject(steady_tonal_stats_t *stats);
 
 void
-steady_tonal_stats_note_accept(lame_internal_flags *gfc,
+steady_tonal_stats_note_accept(steady_tonal_stats_t *stats,
+                               int frame,
                                gr_info const *cod_info,
                                int gr, int ch, int best_bits,
                                steady_tonal_candidate_t const *candidate,

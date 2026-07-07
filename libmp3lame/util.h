@@ -400,50 +400,7 @@ fast_log2(ieee754_float32_t x)
         char    bv_scf[576];
     } QntStateVar_t;
 
-#ifndef STEADY_TONAL_COMMIT_EVENT_CAP
-#define STEADY_TONAL_COMMIT_EVENT_CAP 1024
-#endif
-
-    typedef struct {
-        int     frame;
-        int     gr;
-        int     ch;
-        int     block_type;
-        int     selected_bands;
-        int     best_bits;
-        FLOAT   failure_before_sum;
-        FLOAT   failure_after_sum;
-        FLOAT   max_before;
-        FLOAT   max_after;
-        unsigned int selected_sfb_mask_lo;
-        unsigned int selected_sfb_mask_hi;
-    } steady_tonal_commit_event_t;
-
-    typedef struct {
-        unsigned long long frames_seen;
-        unsigned long long granules_seen;
-        unsigned long long long_granules_seen;
-
-        unsigned long long candidate_granules;
-        unsigned long long retry_granules;
-        unsigned long long accept_granules;
-        unsigned long long reject_granules;
-
-        unsigned long long selected_bands_total;
-        unsigned long long accepted_selected_bands_total;
-
-        unsigned long long accept_by_sfb[SBMAX_l];
-        unsigned long long candidate_by_sfb[SBMAX_l];
-
-        double  failure_before_sum;
-        double  failure_after_sum;
-        double  max_failure_before;
-        double  max_failure_after;
-
-        unsigned int commit_event_count;
-        unsigned int commit_event_overflow;
-        steady_tonal_commit_event_t commit_events[STEADY_TONAL_COMMIT_EVENT_CAP];
-    } steady_tonal_stats_t;
+    typedef struct steady_tonal_stats_s steady_tonal_stats_t;
 
 
     typedef struct {
@@ -608,7 +565,7 @@ fast_log2(ieee754_float32_t x)
         EncStateVar_t sv_enc; /* DATA FROM ENCODER.C */
         EncResult_t ov_enc;
         QntStateVar_t sv_qnt; /* DATA FROM QUANTIZE.C */
-        steady_tonal_stats_t steady_tonal_stats;
+        steady_tonal_stats_t *steady_tonal_stats;
 
         RpgStateVar_t sv_rpg;
         RpgResult_t ov_rpg;

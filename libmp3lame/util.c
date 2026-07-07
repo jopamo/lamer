@@ -31,6 +31,7 @@
 #include "machine.h"
 #include "encoder.h"
 #include "util.h"
+#include "steadyprotect.h"
 #include "tables.h"
 
 #define PRECOMPUTE
@@ -145,6 +146,7 @@ freegfc(lame_internal_flags * const gfc)
     if (gfc->sv_rpg.rgdata) {
         free(gfc->sv_rpg.rgdata);
     }
+    steady_tonal_stats_free(gfc);
     if (gfc->sv_enc.in_buffer_0) {
         free(gfc->sv_enc.in_buffer_0);
     }
