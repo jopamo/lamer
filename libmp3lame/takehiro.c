@@ -511,9 +511,35 @@ static const count_fnc count_fncs[] =
 , &count_bit_noESC_from3
 };
 
+typedef struct {
+    int band_count;
+    int range_max[SBMAX_l + 1][SBMAX_l + 1];
+} long_block_region_max_cache_t;
+
 /*************************************************************************/
 /*	      ix_max							 */
 /*************************************************************************/
+
+static int
+ix_max_range(const int *ix, const int *end)
+{
+    int max1 = 0, max2 = 0;
+
+    while (ix + 1 < end) {
+        int const x1 = *ix++;
+        int const x2 = *ix++;
+        if (max1 < x1)
+            max1 = x1;
+        if (max2 < x2)
+            max2 = x2;
+    }
+
+    if (ix < end && max1 < *ix)
+        max1 = *ix;
+    if (max1 < max2)
+        max1 = max2;
+    return max1;
+}
 
 static int
 ix_max(const int *ix, const int *end)
@@ -568,6 +594,48 @@ choose_table_nonMMX(const int *ix, const int *const end, int *const _s)
 {
     return choose_table_nonMMX_with_max(ix, end, ix_max(ix, end), _s);
 }
+
+static void
+long_block_region_max_cache_init(const lame_internal_flags * const gfc,
+                                 const int * const ix, int const bigv,
+                                 long_block_region_max_cache_t * const cache)
+{
+    int band_max[SBMAX_l];
+    int band_count = 0;
+    int sfb;
+    int start = 0;
+
+    assert(bigv >= 0);
+    assert(bigv <= 576);
+
+    for (sfb = 0; sfb < SBMAX_l && start < bigv; ++sfb) {
+        int end = gfc->scalefac_band.l[sfb + 1];
+        if (end > bigv) {
+            end = bigv;
+        }
+        band_max[sfb] = ix_max_range(ix + start, ix + end);
+        start = end;
+        band_count = sfb + 1;
+    }
+
+    cache->band_count = band_count;
+    for (sfb = 0; sfb <= band_count; ++sfb) {
+        int end_sfb;
+        int max = 0;
+
+        cache->range_max[sfb][sfb] = 0;
+        for (end_sfb = sfb; end_sfb < band_count; ++end_sfb) {
+            if (max < band_max[end_sfb]) {
+                max = band_max[end_sfb];
+            }
+            cache->range_max[sfb][end_sfb + 1] = max;
+        }
+    }
+}
+
+inline static void
+best_huffman_divide_cached(const lame_internal_flags * const gfc, gr_info * const gi,
+                           const long_block_region_max_cache_t * const cached_max);
 
 
 
@@ -732,7 +800,9 @@ count_bits(lame_internal_flags const *const gfc,
 inline static void
 recalc_divide_init(const lame_internal_flags * const gfc,
                    gr_info const *cod_info,
-                   int const *const ix, int r01_bits[], int r01_div[], int r0_tbl[], int r1_tbl[])
+                   int const *const ix,
+                   const long_block_region_max_cache_t * const max_cache,
+                   int r01_bits[], int r01_div[], int r0_tbl[], int r1_tbl[])
 {
     int     r0, r1, bigv, r0t, r1t, bits;
 
@@ -748,7 +818,7 @@ recalc_divide_init(const lame_internal_flags * const gfc,
         if (a1 >= bigv)
             break;
         r0bits = 0;
-        r0t = choose_table_nonMMX(ix, ix + a1, &r0bits);
+        r0t = choose_table_nonMMX_with_max(ix, ix + a1, max_cache->range_max[0][r0 + 1], &r0bits);
 
         for (r1 = 0; r1 < 8; r1++) {
             int const a2 = gfc->scalefac_band.l[r0 + r1 + 2];
@@ -756,7 +826,8 @@ recalc_divide_init(const lame_internal_flags * const gfc,
                 break;
 
             bits = r0bits;
-            r1t = choose_table_nonMMX(ix + a1, ix + a2, &bits);
+            r1t = choose_table_nonMMX_with_max(ix + a1, ix + a2,
+                                               max_cache->range_max[r0 + 1][r0 + r1 + 2], &bits);
             if (r01_bits[r0 + r1] > bits) {
                 r01_bits[r0 + r1] = bits;
                 r01_div[r0 + r1] = r0;
@@ -772,6 +843,7 @@ recalc_divide_sub(const lame_internal_flags * const gfc,
                   const gr_info * cod_info2,
                   gr_info * const gi,
                   const int *const ix,
+                  const long_block_region_max_cache_t * const max_cache,
                   const int r01_bits[], const int r01_div[], const int r0_tbl[], const int r1_tbl[])
 {
     int     bits, r2, a2, bigv, r2t;
@@ -787,7 +859,8 @@ recalc_divide_sub(const lame_internal_flags * const gfc,
         if (gi->part2_3_length <= bits)
             break;
 
-        r2t = choose_table_nonMMX(ix + a2, ix + bigv, &bits);
+        r2t = choose_table_nonMMX_with_max(ix + a2, ix + bigv,
+                                           max_cache->range_max[r2][max_cache->band_count], &bits);
         if (gi->part2_3_length <= bits)
             continue;
 
@@ -804,13 +877,16 @@ recalc_divide_sub(const lame_internal_flags * const gfc,
 
 
 
-void
-best_huffman_divide(const lame_internal_flags * const gfc, gr_info * const gi)
+inline static void
+best_huffman_divide_cached(const lame_internal_flags * const gfc, gr_info * const gi,
+                           const long_block_region_max_cache_t * const cached_max)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     int     i, a1, a2;
     gr_info cod_info2;
     int const *const ix = gi->l3_enc;
+    long_block_region_max_cache_t local_max_cache;
+    const long_block_region_max_cache_t *max_cache = cached_max;
 
     int     r01_bits[7 + 15 + 1];
     int     r01_div[7 + 15 + 1];
@@ -825,8 +901,12 @@ best_huffman_divide(const lame_internal_flags * const gfc, gr_info * const gi)
 
     memcpy(&cod_info2, gi, sizeof(gr_info));
     if (gi->block_type == NORM_TYPE) {
-        recalc_divide_init(gfc, gi, ix, r01_bits, r01_div, r0_tbl, r1_tbl);
-        recalc_divide_sub(gfc, &cod_info2, gi, ix, r01_bits, r01_div, r0_tbl, r1_tbl);
+        if (max_cache == 0) {
+            long_block_region_max_cache_init(gfc, ix, gi->big_values, &local_max_cache);
+            max_cache = &local_max_cache;
+        }
+        recalc_divide_init(gfc, gi, ix, max_cache, r01_bits, r01_div, r0_tbl, r1_tbl);
+        recalc_divide_sub(gfc, &cod_info2, gi, ix, max_cache, r01_bits, r01_div, r0_tbl, r1_tbl);
     }
 
     i = cod_info2.big_values;
@@ -860,7 +940,7 @@ best_huffman_divide(const lame_internal_flags * const gfc, gr_info * const gi)
     cod_info2.count1bits = a1;
 
     if (cod_info2.block_type == NORM_TYPE)
-        recalc_divide_sub(gfc, &cod_info2, gi, ix, r01_bits, r01_div, r0_tbl, r1_tbl);
+        recalc_divide_sub(gfc, &cod_info2, gi, ix, max_cache, r01_bits, r01_div, r0_tbl, r1_tbl);
     else {
         /* Count the number of bits necessary to code the bigvalues region. */
         cod_info2.part2_3_length = a1;
@@ -877,6 +957,12 @@ best_huffman_divide(const lame_internal_flags * const gfc, gr_info * const gi)
         if (gi->part2_3_length > cod_info2.part2_3_length)
             memcpy(gi, &cod_info2, sizeof(gr_info));
     }
+}
+
+void
+best_huffman_divide(const lame_internal_flags * const gfc, gr_info * const gi)
+{
+    best_huffman_divide_cached(gfc, gi, 0);
 }
 
 static const int slen1_n[16] = { 1, 1, 1, 1, 8, 2, 2, 2, 4, 4, 4, 8, 8, 8, 16, 16 };
