@@ -106,6 +106,52 @@ filter_coef(FLOAT x)
     return cos(PI / 2 * x);
 }
 
+static int
+default_v0_vbr_min_bitrate_kbps(SessionConfig_t const *cfg)
+{
+    /* V0 should stay meaningfully top-end VBR without wasting bits on silence
+       or trivially easy material. Scale the default floor with channel count
+       and output bandwidth, and still allow explicit -b / API overrides. */
+    if (cfg->channels_out == 1) {
+        if (cfg->samplerate_out < 16000) {
+            return 16;
+        }
+        if (cfg->samplerate_out < 32000) {
+            return 32;
+        }
+        return 64;
+    }
+
+    if (cfg->samplerate_out < 16000) {
+        return 32;
+    }
+    if (cfg->samplerate_out < 32000) {
+        return 64;
+    }
+    return 128;
+}
+
+static void
+apply_default_vbr_floor(lame_global_flags *gfp, SessionConfig_t const *cfg)
+{
+    int floor;
+
+    if (gfp->VBR_min_bitrate_kbps != 0) {
+        return;
+    }
+    if (gfp->preset != V0) {
+        return;
+    }
+
+    floor = default_v0_vbr_min_bitrate_kbps(cfg);
+    if (gfp->VBR_max_bitrate_kbps > 0 && floor > gfp->VBR_max_bitrate_kbps) {
+        floor = gfp->VBR_max_bitrate_kbps;
+    }
+    if (floor > 0) {
+        gfp->VBR_min_bitrate_kbps = floor;
+    }
+}
+
 static void
 lame_init_params_ppflt(lame_internal_flags * gfc)
 {
@@ -1076,6 +1122,7 @@ lame_init_params(lame_global_flags * gfp)
 
 
     if (cfg->vbr != vbr_off) { /* choose a min/max bitrate for VBR */
+        apply_default_vbr_floor(gfp, cfg);
         /* if the user didn't specify VBR_max_bitrate: */
         cfg->vbr_min_bitrate_index = 1; /* default: allow   8 kbps (MPEG-2) or  32 kbps (MPEG-1) */
         cfg->vbr_max_bitrate_index = 14; /* default: allow 160 kbps (MPEG-2) or 320 kbps (MPEG-1) */

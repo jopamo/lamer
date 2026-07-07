@@ -46,13 +46,19 @@ static int  current_test_failed = 0;
 /* ── helpers ────────────────────────────────────────────────────────────── */
 
 static lame_global_flags *
-make_mono_gfp(void)
+make_gfp(int samplerate, int channels)
 {
     lame_global_flags *gfp = lame_init();
     if (!gfp) return NULL;
-    lame_set_in_samplerate(gfp, 44100);
-    lame_set_num_channels(gfp, 1);
+    lame_set_in_samplerate(gfp, samplerate);
+    lame_set_num_channels(gfp, channels);
     return gfp;
+}
+
+static lame_global_flags *
+make_mono_gfp(void)
+{
+    return make_gfp(44100, 1);
 }
 
 static int
@@ -722,6 +728,64 @@ test_set_get_vbr_min_max(void)
 
     lame_set_VBR_max_bitrate_kbps(gfp, 256);
     ASSERT(lame_get_VBR_max_bitrate_kbps(gfp) == 256, "VBR max round-trip failed");
+    lame_close(gfp);
+    PASS();
+}
+
+static void
+test_v0_default_floor_policy(void)
+{
+    lame_global_flags *gfp;
+
+    TEST("V0 default floor MPEG-1 stereo is 128");
+    gfp = make_gfp(44100, 2);
+    ASSERT(gfp != NULL, "lame_init failed");
+    lame_set_VBR(gfp, vbr_mtrh);
+    lame_set_VBR_q(gfp, 0);
+    ASSERT(lame_init_params(gfp) >= 0, "lame_init_params failed");
+    ASSERT(lame_get_VBR_min_bitrate_kbps(gfp) == 128, "V0 MPEG-1 stereo floor should be 128 kbps");
+    lame_close(gfp);
+    PASS();
+
+    TEST("V0 default floor MPEG-1 mono is 64");
+    gfp = make_gfp(44100, 1);
+    ASSERT(gfp != NULL, "lame_init failed");
+    lame_set_VBR(gfp, vbr_mtrh);
+    lame_set_VBR_q(gfp, 0);
+    ASSERT(lame_init_params(gfp) >= 0, "lame_init_params failed");
+    ASSERT(lame_get_VBR_min_bitrate_kbps(gfp) == 64, "V0 MPEG-1 mono floor should be 64 kbps");
+    lame_close(gfp);
+    PASS();
+
+    TEST("V0 default floor low-rate stereo scales to 64");
+    gfp = make_gfp(22050, 2);
+    ASSERT(gfp != NULL, "lame_init failed");
+    lame_set_VBR(gfp, vbr_mtrh);
+    lame_set_VBR_q(gfp, 0);
+    ASSERT(lame_init_params(gfp) >= 0, "lame_init_params failed");
+    ASSERT(lame_get_VBR_min_bitrate_kbps(gfp) == 64, "V0 low-rate stereo floor should be 64 kbps");
+    lame_close(gfp);
+    PASS();
+
+    TEST("V0 explicit min floor overrides preset default");
+    gfp = make_gfp(44100, 2);
+    ASSERT(gfp != NULL, "lame_init failed");
+    lame_set_VBR(gfp, vbr_mtrh);
+    lame_set_VBR_q(gfp, 0);
+    lame_set_VBR_min_bitrate_kbps(gfp, 192);
+    ASSERT(lame_init_params(gfp) >= 0, "lame_init_params failed");
+    ASSERT(lame_get_VBR_min_bitrate_kbps(gfp) == 192, "explicit VBR min should override V0 preset floor");
+    lame_close(gfp);
+    PASS();
+
+    TEST("V0 preset floor respects explicit max bitrate");
+    gfp = make_gfp(44100, 2);
+    ASSERT(gfp != NULL, "lame_init failed");
+    lame_set_VBR(gfp, vbr_mtrh);
+    lame_set_VBR_q(gfp, 0);
+    lame_set_VBR_max_bitrate_kbps(gfp, 96);
+    ASSERT(lame_init_params(gfp) >= 0, "lame_init_params failed");
+    ASSERT(lame_get_VBR_min_bitrate_kbps(gfp) == 96, "V0 preset floor should clamp to explicit max bitrate");
     lame_close(gfp);
     PASS();
 }
@@ -2267,6 +2331,7 @@ main(void)
     TEST("VBR quality");     test_set_get_vbr_quality();
     TEST("compression_ratio"); test_set_get_compression_ratio();
     TEST("VBR min/max bitrate"); test_set_get_vbr_min_max();
+    test_v0_default_floor_policy();
 
     printf("\n=== P2: ID3 tag round-trips ===\n");
     test_id3tag_roundtrip();

@@ -487,7 +487,11 @@ frontend_presets_longinfo(FILE * const msgfp)
     fprintf(msgfp,
             "     --preset extreme     If you have extremely good hearing and similar\n"
             "                          equipment, this preset will generally provide\n"
-            "                          slightly higher quality than the \"standard\" mode.\n" "\n");
+            "                          slightly higher quality than the \"standard\" mode.\n"
+            "                          In lamer, this preset keeps a conservative VBR\n"
+            "                          floor by default so active music does not fall\n"
+            "                          into obviously low-rate frames unless you\n"
+            "                          explicitly lower the floor with -b.\n" "\n");
     fprintf(msgfp,
             "   For CBR 320kbps (highest quality possible from the --preset switches):\n"
             "\n"
