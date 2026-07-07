@@ -120,12 +120,6 @@ typedef struct {
 } short_window_noise_t;
 
 typedef struct {
-    FLOAT   max_noise;
-    FLOAT   over_noise;
-    int     over_count;
-} steady_band_noise_t;
-
-typedef struct {
     int     attack_max_short_band;
     FLOAT   attack_tighten_db;
     FLOAT   attack_tighten_factor;
@@ -304,46 +298,20 @@ short_redist_profile_better(short_window_noise_t const *candidate, int candidate
     return candidate_bits < best_bits;
 }
 
-static void
-steady_tonal_band_noise(gr_info const *cod_info, FLOAT const *distort,
-                        unsigned int sfb_mask, steady_band_noise_t *res)
-{
-    int sfb;
-
-    (void) cod_info;
-    res->max_noise = -20.0f;
-    res->over_noise = 0.0f;
-    res->over_count = 0;
-
-    for (sfb = 0; sfb < SBMAX_l; ++sfb) {
-        if ((sfb_mask & (1u << sfb)) == 0) {
-            continue;
-        }
-        {
-            FLOAT const noise = FAST_LOG10(Max(distort[sfb], 1E-20f));
-            if (noise > 0.0f) {
-                res->over_noise += noise;
-                res->over_count++;
-            }
-            res->max_noise = Max(res->max_noise, noise);
-        }
-    }
-}
-
 static int
-steady_tonal_profile_better(steady_band_noise_t const *candidate, int candidate_bits,
-                            steady_band_noise_t const *best, int best_bits)
+steady_tonal_profile_better(steady_tonal_failure_t const *candidate, int candidate_bits,
+                            steady_tonal_failure_t const *best, int best_bits)
 {
-    if (candidate->over_noise < best->over_noise) {
+    if (candidate->failure_db_sum < best->failure_db_sum) {
         return 1;
     }
-    if (candidate->over_noise > best->over_noise) {
+    if (candidate->failure_db_sum > best->failure_db_sum) {
         return 0;
     }
-    if (candidate->max_noise < best->max_noise) {
+    if (candidate->max_failure_db < best->max_failure_db) {
         return 1;
     }
-    if (candidate->max_noise > best->max_noise) {
+    if (candidate->max_failure_db > best->max_failure_db) {
         return 0;
     }
     return candidate_bits < best_bits;
@@ -825,9 +793,11 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                            int max_nbits_fr)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
+    int const steady_mode = steady_tonal_protect_mode();
     int const profiles_available = steady_tonal_profile_count();
     int gr2, ch2;
 
+    steady_tonal_stats_note_frame(gfc);
     for (gr2 = 0; gr2 < ngr; ++gr2) {
         for (ch2 = 0; ch2 < nch; ++ch2) {
             algo_t *that = &that_[gr2][ch2];
@@ -836,7 +806,7 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
             int const old_bits = cod_info->part2_3_length;
             FLOAT old_distort[SFBMAX];
             steady_tonal_candidate_t candidate_info;
-            steady_band_noise_t old_selected_noise;
+            steady_tonal_failure_t old_selected_failure;
             calc_noise_result noise_orig;
             char const *candidate_reason = "eligible";
             int candidate;
@@ -844,15 +814,16 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
             if (cod_info->block_type == SHORT_TYPE) {
                 continue;
             }
+            steady_tonal_stats_note_granule(gfc, cod_info);
 
             calc_noise(cod_info, l3_xmin[gr2][ch2], old_distort, &noise_orig, 0);
             candidate = steady_tonal_candidate_select(gfc, cod_info, gr2, psy_ch,
                                                       old_distort,
                                                       &candidate_info,
                                                       &candidate_reason);
-            steady_tonal_band_noise(cod_info, old_distort,
-                                    candidate_info.sfb_mask,
-                                    &old_selected_noise);
+            steady_tonal_selected_failure(cod_info, old_distort,
+                                          candidate_info.sfb_mask,
+                                          &old_selected_failure);
 
             if (cfg->analysis) {
                 fprintf(stderr,
@@ -864,6 +835,8 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                         "mean_tonality=%.3f min_stability=%.3f mean_ath_margin_db=%.2f "
                         "old_bits=%d "
                         "old_selected_max_noise=%.2f old_selected_over_noise=%.2f old_selected_over_count=%d "
+                        "old_selected_max_loss_db=%.2f old_selected_loss_db_sum=%.2f "
+                        "old_selected_max_failure_db=%.2f old_selected_failure_db_sum=%.2f "
                         "old_global_max_noise=%.2f old_over_count=%d\n",
                         candidate,
                         gfc->ov_enc.frame_number, gr2, ch2, psy_ch,
@@ -875,14 +848,24 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                         (double) candidate_info.min_stability,
                         (double) candidate_info.mean_ath_margin_db,
                         old_bits,
-                        (double) old_selected_noise.max_noise,
-                        (double) old_selected_noise.over_noise,
-                        old_selected_noise.over_count,
+                        (double) old_selected_failure.max_noise,
+                        (double) old_selected_failure.over_noise,
+                        old_selected_failure.over_count,
+                        (double) old_selected_failure.max_loss_db,
+                        (double) old_selected_failure.loss_db_sum,
+                        (double) old_selected_failure.max_failure_db,
+                        (double) old_selected_failure.failure_db_sum,
                         (double) noise_orig.max_noise,
                         noise_orig.over_count);
             }
 
             if (!candidate) {
+                continue;
+            }
+            steady_tonal_stats_note_candidate(gfc, &candidate_info,
+                                              &old_selected_failure);
+            if (steady_mode == LAME_STEADY_TONAL_PROTECT_MODE_METRIC) {
+                steady_tonal_stats_note_reject(gfc);
                 continue;
             }
 
@@ -911,14 +894,15 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                 char const *reject_reason = "no_legal_profile";
                 calc_noise_result best_noise_orig = noise_orig;
                 calc_noise_result noise_restore_orig;
-                steady_band_noise_t best_selected_noise = old_selected_noise;
-                steady_band_noise_t restore_selected_noise;
+                steady_tonal_failure_t best_selected_failure = old_selected_failure;
+                steady_tonal_failure_t restore_selected_failure;
 
                 memcpy(saved_sfwork, sfwork_[gr2][ch2], sizeof(saved_sfwork));
                 memcpy(saved_vbrsfmin, vbrsfmin_[gr2][ch2],
                        sizeof(saved_vbrsfmin));
                 memcpy(saved_scfsi, gfc->l3_side.scfsi,
                        sizeof(saved_scfsi));
+                steady_tonal_stats_note_retry(gfc);
 
                 for (profile_index = 0;
                      profile_index < profiles_available;
@@ -926,7 +910,7 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                     steady_tonal_profile_t const *profile =
                         steady_tonal_profile_get(profile_index);
                     calc_noise_result noise_retry_orig;
-                    steady_band_noise_t new_selected_noise;
+                    steady_tonal_failure_t new_selected_failure;
                     int tightened_bands = 0;
                     int new_bits;
                     int new_nbits = old_nbits;
@@ -969,9 +953,9 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
 
                     calc_noise(cod_info, l3_xmin[gr2][ch2], new_distort,
                                &noise_retry_orig, 0);
-                    steady_tonal_band_noise(cod_info, new_distort,
-                                            candidate_info.sfb_mask,
-                                            &new_selected_noise);
+                    steady_tonal_selected_failure(cod_info, new_distort,
+                                                  candidate_info.sfb_mask,
+                                                  &new_selected_failure);
 
                     new_bits = cod_info->part2_3_length;
 
@@ -1002,8 +986,8 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
 
                     if (legal_profile
                         && (!have_legal_profile
-                            || steady_tonal_profile_better(&new_selected_noise, new_bits,
-                                                           &best_selected_noise, best_bits))) {
+                            || steady_tonal_profile_better(&new_selected_failure, new_bits,
+                                                           &best_selected_failure, best_bits))) {
                         have_legal_profile = 1;
                         best_profile = profile_index;
                         best_gi = *cod_info;
@@ -1016,7 +1000,7 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                         best_nbits = new_nbits;
                         best_bits = new_bits;
                         best_tightened_bands = tightened_bands;
-                        best_selected_noise = new_selected_noise;
+                        best_selected_failure = new_selected_failure;
                         best_noise_orig = noise_retry_orig;
                     }
 
@@ -1029,17 +1013,21 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                            sizeof(saved_scfsi));
                     calc_noise(cod_info, l3_xmin[gr2][ch2], restore_distort,
                                &noise_restore_orig, 0);
-                    steady_tonal_band_noise(cod_info, restore_distort,
-                                            candidate_info.sfb_mask,
-                                            &restore_selected_noise);
+                    steady_tonal_selected_failure(cod_info, restore_distort,
+                                                  candidate_info.sfb_mask,
+                                                  &restore_selected_failure);
                     trial_rollback_ok =
                         cod_info->part2_3_length == old_bits
                         && noise_restore_orig.over_count == noise_orig.over_count
                         && fabsf(noise_restore_orig.max_noise - noise_orig.max_noise) < 1e-6f
                         && fabsf(noise_restore_orig.over_noise - noise_orig.over_noise) < 1e-6f
-                        && restore_selected_noise.over_count == old_selected_noise.over_count
-                        && fabsf(restore_selected_noise.max_noise - old_selected_noise.max_noise) < 1e-6f
-                        && fabsf(restore_selected_noise.over_noise - old_selected_noise.over_noise) < 1e-6f
+                        && restore_selected_failure.over_count == old_selected_failure.over_count
+                        && fabsf(restore_selected_failure.max_noise - old_selected_failure.max_noise) < 1e-6f
+                        && fabsf(restore_selected_failure.over_noise - old_selected_failure.over_noise) < 1e-6f
+                        && fabsf(restore_selected_failure.max_loss_db - old_selected_failure.max_loss_db) < 1e-6f
+                        && fabsf(restore_selected_failure.loss_db_sum - old_selected_failure.loss_db_sum) < 1e-6f
+                        && fabsf(restore_selected_failure.max_failure_db - old_selected_failure.max_failure_db) < 1e-6f
+                        && fabsf(restore_selected_failure.failure_db_sum - old_selected_failure.failure_db_sum) < 1e-6f
                         && memcmp(gfc->l3_side.scfsi, saved_scfsi,
                                   sizeof(saved_scfsi)) == 0;
 
@@ -1052,6 +1040,10 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                                 "old_selected_max_noise=%.2f new_selected_max_noise=%.2f "
                                 "old_selected_over_noise=%.2f new_selected_over_noise=%.2f "
                                 "old_selected_over_count=%d new_selected_over_count=%d "
+                                "old_selected_max_loss_db=%.2f new_selected_max_loss_db=%.2f "
+                                "old_selected_loss_db_sum=%.2f new_selected_loss_db_sum=%.2f "
+                                "old_selected_max_failure_db=%.2f new_selected_max_failure_db=%.2f "
+                                "old_selected_failure_db_sum=%.2f new_selected_failure_db_sum=%.2f "
                                 "old_global_max_noise=%.2f new_global_max_noise=%.2f "
                                 "old_over_count=%d new_over_count=%d "
                                 "tightened_bands=%d "
@@ -1063,12 +1055,20 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                                 old_bits, new_bits,
                                 (double) profile->tighten_db,
                                 candidate_info.sfb_count, candidate_info.sfb_mask,
-                                (double) old_selected_noise.max_noise,
-                                (double) new_selected_noise.max_noise,
-                                (double) old_selected_noise.over_noise,
-                                (double) new_selected_noise.over_noise,
-                                old_selected_noise.over_count,
-                                new_selected_noise.over_count,
+                                (double) old_selected_failure.max_noise,
+                                (double) new_selected_failure.max_noise,
+                                (double) old_selected_failure.over_noise,
+                                (double) new_selected_failure.over_noise,
+                                old_selected_failure.over_count,
+                                new_selected_failure.over_count,
+                                (double) old_selected_failure.max_loss_db,
+                                (double) new_selected_failure.max_loss_db,
+                                (double) old_selected_failure.loss_db_sum,
+                                (double) new_selected_failure.loss_db_sum,
+                                (double) old_selected_failure.max_failure_db,
+                                (double) new_selected_failure.max_failure_db,
+                                (double) old_selected_failure.failure_db_sum,
+                                (double) new_selected_failure.failure_db_sum,
                                 (double) noise_orig.max_noise,
                                 (double) noise_retry_orig.max_noise,
                                 noise_orig.over_count,
@@ -1086,10 +1086,12 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                 }
 
                 if (rollback_ok && have_legal_profile) {
-                    int const selected_over_improved =
-                        best_selected_noise.over_noise < old_selected_noise.over_noise;
-                    int const selected_max_ok =
-                        best_selected_noise.max_noise <= old_selected_noise.max_noise;
+                    int const selected_failure_improved =
+                        best_selected_failure.failure_db_sum
+                        < old_selected_failure.failure_db_sum;
+                    int const selected_max_failure_ok =
+                        best_selected_failure.max_failure_db
+                        <= old_selected_failure.max_failure_db;
                     int const global_max_ok =
                         best_noise_orig.max_noise
                         <= noise_orig.max_noise + STEADY_TONAL_GLOBAL_MAX_NOISE_SLOP;
@@ -1098,19 +1100,25 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                         <= noise_orig.over_count + STEADY_TONAL_OVERCOUNT_SLOP;
 
                     accept = best_bits <= MAX_BITS_PER_CHANNEL
-                        && selected_over_improved
-                        && selected_max_ok
+                        && selected_failure_improved
+                        && selected_max_failure_ok
                         && global_max_ok
                         && over_count_ok;
 
+                    if (accept
+                        && steady_mode == LAME_STEADY_TONAL_PROTECT_MODE_RETRY_REJECT) {
+                        accept = 0;
+                        reject_reason = "mode_retry_reject";
+                    }
+                    else
                     if (accept) {
                         reject_reason = "accepted";
                     }
-                    else if (!selected_over_improved) {
-                        reject_reason = "selected_over_noise";
+                    else if (!selected_failure_improved) {
+                        reject_reason = "selected_failure";
                     }
-                    else if (!selected_max_ok) {
-                        reject_reason = "selected_max_noise";
+                    else if (!selected_max_failure_ok) {
+                        reject_reason = "selected_max_failure";
                     }
                     else if (!global_max_ok) {
                         reject_reason = "global_max_noise";
@@ -1131,6 +1139,10 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                     use_nbits_ch[gr2][ch2] = best_nbits;
                     use_nbits_gr[gr2] += (best_nbits - old_nbits);
                     *use_nbits_fr += (best_nbits - old_nbits);
+                    steady_tonal_stats_note_accept(gfc, cod_info, gr2, ch2,
+                                                   best_bits, &candidate_info,
+                                                   &old_selected_failure,
+                                                   &best_selected_failure);
                 }
                 else {
                     *cod_info = saved_gi;
@@ -1140,6 +1152,7 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                            sizeof(saved_vbrsfmin));
                     memcpy(gfc->l3_side.scfsi, saved_scfsi,
                            sizeof(saved_scfsi));
+                    steady_tonal_stats_note_reject(gfc);
                 }
 
                 if (cfg->analysis) {
@@ -1147,8 +1160,8 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                     int summary_bits = have_legal_profile ? best_bits : old_bits;
                     int summary_tightened_bands =
                         have_legal_profile ? best_tightened_bands : 0;
-                    steady_band_noise_t const *summary_selected_noise =
-                        have_legal_profile ? &best_selected_noise : &old_selected_noise;
+                    steady_tonal_failure_t const *summary_selected_failure =
+                        have_legal_profile ? &best_selected_failure : &old_selected_failure;
                     calc_noise_result const *summary_noise_orig =
                         have_legal_profile ? &best_noise_orig : &noise_orig;
 
@@ -1163,6 +1176,10 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                             "old_selected_max_noise=%.2f new_selected_max_noise=%.2f "
                             "old_selected_over_noise=%.2f new_selected_over_noise=%.2f "
                             "old_selected_over_count=%d new_selected_over_count=%d "
+                            "old_selected_max_loss_db=%.2f new_selected_max_loss_db=%.2f "
+                            "old_selected_loss_db_sum=%.2f new_selected_loss_db_sum=%.2f "
+                            "old_selected_max_failure_db=%.2f new_selected_max_failure_db=%.2f "
+                            "old_selected_failure_db_sum=%.2f new_selected_failure_db_sum=%.2f "
                             "old_global_max_noise=%.2f new_global_max_noise=%.2f "
                             "old_over_count=%d new_over_count=%d "
                             "tightened_bands=%d "
@@ -1177,12 +1194,20 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                             (double) candidate_info.min_stability,
                             (double) candidate_info.mean_ath_margin_db,
                             old_bits, summary_bits,
-                            (double) old_selected_noise.max_noise,
-                            (double) summary_selected_noise->max_noise,
-                            (double) old_selected_noise.over_noise,
-                            (double) summary_selected_noise->over_noise,
-                            old_selected_noise.over_count,
-                            summary_selected_noise->over_count,
+                            (double) old_selected_failure.max_noise,
+                            (double) summary_selected_failure->max_noise,
+                            (double) old_selected_failure.over_noise,
+                            (double) summary_selected_failure->over_noise,
+                            old_selected_failure.over_count,
+                            summary_selected_failure->over_count,
+                            (double) old_selected_failure.max_loss_db,
+                            (double) summary_selected_failure->max_loss_db,
+                            (double) old_selected_failure.loss_db_sum,
+                            (double) summary_selected_failure->loss_db_sum,
+                            (double) old_selected_failure.max_failure_db,
+                            (double) summary_selected_failure->max_failure_db,
+                            (double) old_selected_failure.failure_db_sum,
+                            (double) summary_selected_failure->failure_db_sum,
                             (double) noise_orig.max_noise,
                             (double) summary_noise_orig->max_noise,
                             noise_orig.over_count,

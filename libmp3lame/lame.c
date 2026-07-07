@@ -43,6 +43,7 @@
 #include "set_get.h"
 #include "quantize.h"
 #include "psymodel.h"
+#include "steadyprotect.h"
 #include "version.h"
 #include "VbrTag.h"
 #include "tables.h"
@@ -2248,6 +2249,7 @@ lame_close(lame_global_flags * gfp)
             ret = -3;
         }
         if (NULL != gfc) {
+            steady_tonal_dump_stats_if_requested(gfc);
             gfc->lame_init_params_successful = 0;
             gfc->class_id = 0;
             /* this routine will free all malloc'd data in gfc, and then free gfc: */
