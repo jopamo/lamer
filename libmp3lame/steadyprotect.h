@@ -68,7 +68,8 @@ steady_tonal_build_xmin(FLOAT *dst, FLOAT const *src,
                         int *tightened_bands);
 
 void
-steady_tonal_selected_failure(gr_info const *cod_info,
+steady_tonal_selected_failure(lame_internal_flags const *gfc,
+                              gr_info const *cod_info,
                               FLOAT const *distort,
                               unsigned int sfb_mask,
                               steady_tonal_failure_t *failure);

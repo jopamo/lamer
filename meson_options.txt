@@ -1,0 +1,14 @@
+option(
+  'simd',
+  type : 'combo',
+  choices : ['auto', 'disabled'],
+  value : 'auto',
+  description : 'Enable internal SIMD DSP backends where available',
+)
+
+option(
+  'simd-runtime-dispatch',
+  type : 'boolean',
+  value : true,
+  description : 'Allow runtime selection among compiled SIMD DSP backends',
+)

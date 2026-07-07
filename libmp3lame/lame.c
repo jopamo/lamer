@@ -656,6 +656,8 @@ lame_init_params(lame_global_flags * gfp)
         gfc->CPU_features.SSE2 = 0;
     }
 
+    lamer_dsp_init(&gfc->dsp);
+
 
     cfg->vbr = gfp->VBR;
     cfg->error_protection = gfp->error_protection;

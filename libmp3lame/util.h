@@ -26,6 +26,7 @@
 #include "l3side.h"
 #include "id3tag.h"
 #include "lame_global_flags.h"
+#include "vector/lamer_dsp.h"
 
 #ifdef __cplusplus
 extern  "C" {
@@ -598,6 +599,7 @@ fast_log2(ieee754_float32_t x)
         hip_t hip;
 
         /* functions to replace with CPU feature optimized versions */
+        lamer_dsp dsp;
         void    (*fft_fht) (FLOAT *, int);
         void    (*init_xrpow_core) (gr_info * const cod_info, FLOAT xrpow[576], int upper,
                                     FLOAT * sum);

@@ -7,6 +7,28 @@ project(
 )
 
 cc = meson.get_compiler('c')
+simd_opt = get_option('simd')
+simd_runtime_dispatch_opt = get_option('simd-runtime-dispatch')
+simd_enabled = simd_opt != 'disabled'
+host_cpu_family = host_machine.cpu_family()
+
+simd_x86_sse2 = false
+simd_x86_avx2 = false
+simd_aarch64_neon = false
+
+if simd_enabled and host_cpu_family == 'x86_64'
+  simd_x86_sse2 = cc.has_header('emmintrin.h')
+  simd_x86_avx2 = (
+    simd_runtime_dispatch_opt
+    and cc.has_argument('-mavx2')
+    and cc.has_header('immintrin.h', args : ['-mavx2'])
+  )
+endif
+
+if simd_enabled and host_cpu_family == 'aarch64'
+  simd_aarch64_neon = cc.has_header('arm_neon.h')
+endif
+
 mpg123_dep = dependency('libmpg123', required : false)
 if not mpg123_dep.found()
   mpg123_dep = dependency('mpg123', required : false)
@@ -35,6 +57,11 @@ conf.set('HAVE_STRCHR', cc.has_function('strchr', prefix : '#include <string.h>'
 conf.set('HAVE_UNISTD_H', cc.has_header('unistd.h'))
 conf.set('HAVE_ICONV', false)
 conf.set('USE_FAST_LOG', true)
+conf.set('LAMER_ENABLE_SIMD', simd_enabled)
+conf.set('LAMER_ENABLE_SIMD_RUNTIME_DISPATCH', simd_enabled and simd_runtime_dispatch_opt)
+conf.set('LAMER_HAVE_X86_SSE2', simd_x86_sse2)
+conf.set('LAMER_HAVE_X86_AVX2', simd_x86_avx2)
+conf.set('LAMER_HAVE_AARCH64_NEON', simd_aarch64_neon)
 
 configure_file(
   input : 'config.h.meson',
@@ -56,7 +83,7 @@ subdir('frontend')
 
 install_headers('include/lame.h')
 install_data(
-  ['README.md', 'CHANGELOG.md', 'COMPATIBILITY.md'],
+  ['README.md'],
   install_dir : join_paths(get_option('datadir'), 'doc', meson.project_name()),
 )
 

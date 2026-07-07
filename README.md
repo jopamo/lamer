@@ -13,3 +13,8 @@ Build:
 - `meson setup build`
 - `meson compile -C build`
 - `meson test -C build --print-errorlogs`
+
+SIMD:
+- build auto/default: `-Dsimd=auto -Dsimd-runtime-dispatch=true`
+- build scalar-only: `-Dsimd=disabled`
+- runtime scalar escape hatch: `LAMER_SIMD=0 lame ...`

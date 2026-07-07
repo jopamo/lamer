@@ -43,7 +43,7 @@ struct algo_s;
 typedef struct algo_s algo_t;
 
 typedef void (*alloc_sf_f) (const algo_t *, const int *, const int *, int);
-typedef uint8_t (*find_sf_f) (const FLOAT *, const FLOAT *, FLOAT, unsigned int, uint8_t);
+typedef uint8_t (*find_sf_f) (const algo_t *, const FLOAT *, const FLOAT *, FLOAT, unsigned int, uint8_t);
 
 struct algo_s {
     alloc_sf_f alloc;
@@ -826,7 +826,7 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                                                       old_distort,
                                                       &candidate_info,
                                                       &candidate_reason);
-            steady_tonal_selected_failure(cod_info, old_distort,
+            steady_tonal_selected_failure(gfc, cod_info, old_distort,
                                           candidate_info.sfb_mask,
                                           &old_selected_failure);
 
@@ -964,7 +964,7 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
 
                     calc_noise(cod_info, l3_xmin[gr2][ch2], new_distort,
                                &noise_retry_orig, 0);
-                    steady_tonal_selected_failure(cod_info, new_distort,
+                    steady_tonal_selected_failure(gfc, cod_info, new_distort,
                                                   candidate_info.sfb_mask,
                                                   &new_selected_failure);
 
@@ -1024,7 +1024,7 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                            sizeof(saved_scfsi));
                     calc_noise(cod_info, l3_xmin[gr2][ch2], restore_distort,
                                &noise_restore_orig, 0);
-                    steady_tonal_selected_failure(cod_info, restore_distort,
+                    steady_tonal_selected_failure(gfc, cod_info, restore_distort,
                                                   candidate_info.sfb_mask,
                                                   &restore_selected_failure);
                     trial_rollback_ok =
@@ -1244,35 +1244,10 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
 #  define XRPOW_FTOI(src,dest) ((dest) = (int)(src))
 
 
-inline static  float
-vec_max_c(const float * xr34, unsigned int bw)
+inline static float
+vec_max_c(lamer_dsp const *dsp, const float * xr34, unsigned int bw)
 {
-    float   xfsf = 0;
-    unsigned int i = bw >> 2u;
-    unsigned int const remaining = (bw & 0x03u);
-
-    while (i-- > 0) {
-        if (xfsf < xr34[0]) {
-            xfsf = xr34[0];
-        }
-        if (xfsf < xr34[1]) {
-            xfsf = xr34[1];
-        }
-        if (xfsf < xr34[2]) {
-            xfsf = xr34[2];
-        }
-        if (xfsf < xr34[3]) {
-            xfsf = xr34[3];
-        }
-        xr34 += 4;
-    }
-    switch( remaining ) {
-    case 3: if (xfsf < xr34[2]) xfsf = xr34[2];
-    case 2: if (xfsf < xr34[1]) xfsf = xr34[1];
-    case 1: if (xfsf < xr34[0]) xfsf = xr34[0];
-    default: break;
-    }
-    return xfsf;
+    return dsp->max_f32(xr34, (int) bw);
 }
 
 
@@ -1298,80 +1273,15 @@ find_lowest_scalefac(const FLOAT xr34)
 }
 
 
-inline static void
-k_34_4(FLOAT x[4], int l3[4])
-{
-    assert(x[0] <= IXMAX_VAL && x[1] <= IXMAX_VAL && x[2] <= IXMAX_VAL && x[3] <= IXMAX_VAL);
-    XRPOW_FTOI(x[0], l3[0]);
-    XRPOW_FTOI(x[1], l3[1]);
-    XRPOW_FTOI(x[2], l3[2]);
-    XRPOW_FTOI(x[3], l3[3]);
-    x[0] += QUANTFAC(l3[0]);
-    x[1] += QUANTFAC(l3[1]);
-    x[2] += QUANTFAC(l3[2]);
-    x[3] += QUANTFAC(l3[3]);
-    XRPOW_FTOI(x[0], l3[0]);
-    XRPOW_FTOI(x[1], l3[1]);
-    XRPOW_FTOI(x[2], l3[2]);
-    XRPOW_FTOI(x[3], l3[3]);
-}
-
-
-
-
-
 /*  do call the calc_sfb_noise_* functions only with sf values
  *  for which holds: sfpow34*xr34 <= IXMAX_VAL
  */
 
 static  FLOAT
-calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, unsigned int bw, uint8_t sf)
+calc_sfb_noise_x34(lamer_dsp const *dsp,
+                   const FLOAT * xr, const FLOAT * xr34, unsigned int bw, uint8_t sf)
 {
-    FLOAT   x[4];
-    int     l3[4];
-    const FLOAT sfpow = pow20[sf + Q_MAX2]; /*pow(2.0,sf/4.0); */
-    const FLOAT sfpow34 = ipow20[sf]; /*pow(sfpow,-3.0/4.0); */
-
-    FLOAT   xfsf = 0;
-    unsigned int i = bw >> 2u;
-    unsigned int const remaining = (bw & 0x03u);
-
-    while (i-- > 0) {
-        x[0] = sfpow34 * xr34[0];
-        x[1] = sfpow34 * xr34[1];
-        x[2] = sfpow34 * xr34[2];
-        x[3] = sfpow34 * xr34[3];
-
-        k_34_4(x, l3);
-
-        x[0] = fabsf(xr[0]) - sfpow * pow43[l3[0]];
-        x[1] = fabsf(xr[1]) - sfpow * pow43[l3[1]];
-        x[2] = fabsf(xr[2]) - sfpow * pow43[l3[2]];
-        x[3] = fabsf(xr[3]) - sfpow * pow43[l3[3]];
-        xfsf += (x[0] * x[0] + x[1] * x[1]) + (x[2] * x[2] + x[3] * x[3]);
-
-        xr += 4;
-        xr34 += 4;
-    }
-    if (remaining) {
-        x[0] = x[1] = x[2] = x[3] = 0;
-        switch( remaining ) {
-        case 3: x[2] = sfpow34 * xr34[2];
-        case 2: x[1] = sfpow34 * xr34[1];
-        case 1: x[0] = sfpow34 * xr34[0];
-        }
-
-        k_34_4(x, l3);
-        x[0] = x[1] = x[2] = x[3] = 0;
-
-        switch( remaining ) {
-        case 3: x[2] = fabsf(xr[2]) - sfpow * pow43[l3[2]];
-        case 2: x[1] = fabsf(xr[1]) - sfpow * pow43[l3[1]];
-        case 1: x[0] = fabsf(xr[0]) - sfpow * pow43[l3[0]];
-        }
-        xfsf += (x[0] * x[0] + x[1] * x[1]) + (x[2] * x[2] + x[3] * x[3]);
-    }
-    return xfsf;
+    return dsp->vbr_calc_sfb_noise_x34(xr, xr34, bw, sf);
 }
 
 
@@ -1385,12 +1295,13 @@ typedef struct calc_noise_cache calc_noise_cache_t;
 
 
 static  uint8_t
-tri_calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned int bw,
+tri_calc_sfb_noise_x34(lamer_dsp const *dsp,
+                       const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned int bw,
                        uint8_t sf, calc_noise_cache_t * did_it)
 {
     if (did_it[sf].valid == 0) {
         did_it[sf].valid = 1;
-        did_it[sf].value = calc_sfb_noise_x34(xr, xr34, bw, sf);
+        did_it[sf].value = calc_sfb_noise_x34(dsp, xr, xr34, bw, sf);
     }
     if (l3_xmin < did_it[sf].value) {
         return 1;
@@ -1399,7 +1310,7 @@ tri_calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsi
         uint8_t const sf_x = sf + 1;
         if (did_it[sf_x].valid == 0) {
             did_it[sf_x].valid = 1;
-            did_it[sf_x].value = calc_sfb_noise_x34(xr, xr34, bw, sf_x);
+            did_it[sf_x].value = calc_sfb_noise_x34(dsp, xr, xr34, bw, sf_x);
         }
         if (l3_xmin < did_it[sf_x].value) {
             return 1;
@@ -1409,7 +1320,7 @@ tri_calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsi
         uint8_t const sf_x = sf - 1;
         if (did_it[sf_x].valid == 0) {
             did_it[sf_x].valid = 1;
-            did_it[sf_x].value = calc_sfb_noise_x34(xr, xr34, bw, sf_x);
+            did_it[sf_x].value = calc_sfb_noise_x34(dsp, xr, xr34, bw, sf_x);
         }
         if (l3_xmin < did_it[sf_x].value) {
             return 1;
@@ -1431,9 +1342,11 @@ calc_scalefac(FLOAT l3_xmin, int bw)
 }
 
 static uint8_t
-guess_scalefac_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned int bw, uint8_t sf_min)
+guess_scalefac_x34(const algo_t *that,
+                   const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned int bw, uint8_t sf_min)
 {
     int const guess = calc_scalefac(l3_xmin, bw);
+    (void) that;
     if (guess < sf_min) return sf_min;
     if (guess >= 255) return 255;
     (void) xr;
@@ -1454,9 +1367,11 @@ guess_scalefac_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned
  */
 
 static  uint8_t
-find_scalefac_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned int bw,
+find_scalefac_x34(const algo_t *that,
+                  const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned int bw,
                   uint8_t sf_min)
 {
+    lamer_dsp const *const dsp = &that->gfc->dsp;
     calc_noise_cache_t did_it[256];
     uint8_t sf = 128, sf_ok = 255, delsf = 128, seen_good_one = 0, i;
     memset(did_it, 0, sizeof(did_it));
@@ -1466,7 +1381,7 @@ find_scalefac_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned 
             sf += delsf;
         }
         else {
-            uint8_t const bad = tri_calc_sfb_noise_x34(xr, xr34, l3_xmin, bw, sf, did_it);
+            uint8_t const bad = tri_calc_sfb_noise_x34(dsp, xr, xr34, l3_xmin, bw, sf, did_it);
             if (bad) {  /* distortion.  try a smaller scalefactor */
                 sf -= delsf;
             }
@@ -1529,7 +1444,7 @@ block_sf(algo_t * that, const FLOAT l3_xmin[SFBMAX], int vbrsf[SFBMAX], int vbrs
         if (l > m) {
             l = m;
         }
-        max_xr34 = vec_max_c(&xr34_orig[j], l);
+        max_xr34 = vec_max_c(&that->gfc->dsp, &xr34_orig[j], l);
 
         m1 = find_lowest_scalefac(max_xr34);
         vbrsfmin[sfb] = m1;
@@ -1544,7 +1459,7 @@ block_sf(algo_t * that, const FLOAT l3_xmin[SFBMAX], int vbrsf[SFBMAX], int vbrs
         }
         if (sfb < psymax && w > 2) { /* mpeg2.5 at 8 kHz doesn't use all scalefactors, unused have width 2 */
             if (energy_above_cutoff[sfb]) {
-                m2 = that->find(&xr[j], &xr34_orig[j], l3_xmin[sfb], l, m1);
+                m2 = that->find(that, &xr[j], &xr34_orig[j], l3_xmin[sfb], l, m1);
                 if (maxsf < m2) {
                     maxsf = m2;
                 }
@@ -1598,7 +1513,6 @@ block_sf(algo_t * that, const FLOAT l3_xmin[SFBMAX], int vbrsf[SFBMAX], int vbrs
 static void
 quantize_x34(const algo_t * that)
 {
-    FLOAT   x[4];
     const FLOAT *xr34_orig = that->xr34orig;
     gr_info *const cod_info = that->cod_info;
     int const ifqstep = (cod_info->scalefac_scale == 0) ? 2 : 4;
@@ -1617,7 +1531,7 @@ quantize_x34(const algo_t * that)
         FLOAT const sfpow34 = ipow20[sfac];
         unsigned int const w = (unsigned int) cod_info->width[sfb];
         unsigned int const m = (unsigned int) (max_nonzero_coeff - j + 1);
-        unsigned int i, remaining;
+        unsigned int i;
 
         assert((cod_info->global_gain - s) >= 0);
         assert(cod_info->width[sfb] >= 0);
@@ -1625,40 +1539,9 @@ quantize_x34(const algo_t * that)
         ++sfb;
         
         i = (w <= m) ? w : m;
-        remaining = (i & 0x03u);
-        i >>= 2u;
-
-        while (i-- > 0) {
-            x[0] = sfpow34 * xr34_orig[0];
-            x[1] = sfpow34 * xr34_orig[1];
-            x[2] = sfpow34 * xr34_orig[2];
-            x[3] = sfpow34 * xr34_orig[3];
-
-            k_34_4(x, l3);
-
-            l3 += 4;
-            xr34_orig += 4;
-        }
-        if (remaining) {
-            int tmp_l3[4];
-            x[0] = x[1] = x[2] = x[3] = 0;
-            switch( remaining ) {
-            case 3: x[2] = sfpow34 * xr34_orig[2];
-            case 2: x[1] = sfpow34 * xr34_orig[1];
-            case 1: x[0] = sfpow34 * xr34_orig[0];
-            }
-
-            k_34_4(x, tmp_l3);
-
-            switch( remaining ) {
-            case 3: l3[2] = tmp_l3[2];
-            case 2: l3[1] = tmp_l3[1];
-            case 1: l3[0] = tmp_l3[0];
-            }
-
-            l3 += remaining;
-            xr34_orig += remaining;
-        }
+        that->gfc->dsp.vbr_quantize_x34(l3, xr34_orig, i, sfpow34);
+        l3 += i;
+        xr34_orig += i;
     }
 }
 

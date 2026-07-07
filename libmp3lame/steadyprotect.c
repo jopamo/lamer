@@ -150,7 +150,8 @@ steady_tonal_sfb_center_hz(lame_internal_flags const *gfc, int sfb)
 }
 
 static void
-steady_tonal_band_metric(gr_info const *cod_info, int sfb, int start, FLOAT distort_sfb,
+steady_tonal_band_metric(lamer_dsp const *dsp,
+                         gr_info const *cod_info, int sfb, int start, FLOAT distort_sfb,
                          FLOAT *noise_db, FLOAT *loss_db, FLOAT *failure_db)
 {
     int const width = cod_info->width[sfb];
@@ -163,15 +164,9 @@ steady_tonal_band_metric(gr_info const *cod_info, int sfb, int start, FLOAT dist
               - cod_info->subblock_gain[cod_info->window[sfb]] * 8);
     FLOAT source_energy = 0.0f;
     FLOAT quant_energy = 0.0f;
-    int i;
 
-    for (i = 0; i < width; ++i) {
-        FLOAT const orig = fabsf(cod_info->xr[start + i]);
-        FLOAT const recon = pow43[ix[start + i]] * step;
-
-        source_energy += orig * orig;
-        quant_energy += recon * recon;
-    }
+    dsp->reconstructed_energy_f32(cod_info->xr + start, ix + start, step, width,
+                                  &source_energy, &quant_energy);
 
     *noise_db = Max(FAST_LOG10(Max(distort_sfb, 1E-20f)), 0.0f);
     *loss_db = 0.0f;
@@ -268,7 +263,7 @@ steady_tonal_candidate_select(lame_internal_flags const *gfc,
         FLOAT loss_db = 0.0f;
         FLOAT failure_db = 0.0f;
 
-        steady_tonal_band_metric(cod_info, sfb, j, distort[sfb],
+        steady_tonal_band_metric(&gfc->dsp, cod_info, sfb, j, distort[sfb],
                                  &noise_db, &loss_db, &failure_db);
 
         if (hz < STEADY_TONAL_MIN_HZ || hz > STEADY_TONAL_MAX_HZ) {
@@ -359,7 +354,8 @@ steady_tonal_build_xmin(FLOAT *dst, FLOAT const *src,
 }
 
 void
-steady_tonal_selected_failure(gr_info const *cod_info,
+steady_tonal_selected_failure(lame_internal_flags const *gfc,
+                              gr_info const *cod_info,
                               FLOAT const *distort,
                               unsigned int sfb_mask,
                               steady_tonal_failure_t *failure)
@@ -375,7 +371,7 @@ steady_tonal_selected_failure(gr_info const *cod_info,
             FLOAT loss_db = 0.0f;
             FLOAT failure_db = 0.0f;
 
-            steady_tonal_band_metric(cod_info, sfb, j, distort[sfb],
+            steady_tonal_band_metric(&gfc->dsp, cod_info, sfb, j, distort[sfb],
                                      &noise_db, &loss_db, &failure_db);
             if (noise_db > 0.0f) {
                 failure->over_noise += noise_db;

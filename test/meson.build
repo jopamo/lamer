@@ -74,6 +74,19 @@ test(
   suite : ['smoke'],
 )
 
+test(
+  'lame-simd-identity',
+  python,
+  args : [
+    files('test_simd_identity.py'),
+    lame_exe_path,
+    join_paths(data_dir, 'testcase_stereo_44100_16.wav'),
+    join_paths(meson.project_source_root(), 'samples', 'hard', 'castanets.wav'),
+  ],
+  workdir : meson.current_build_dir(),
+  suite : ['smoke', 'simd'],
+)
+
 # ── Short matrix tests (fast, run every time) ────────────────────────────────
 
 test(
