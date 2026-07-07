@@ -1943,6 +1943,8 @@ psymodel_init(lame_global_flags const *gfp)
     gd->experimental_short_mask_relax = 1; /* TEMP: enable for testing */
     gd->experimental_short_transient_redistribute =
         gfp->experimental_short_transient_redistribute;
+    gd->safe_short_transient_redistribute =
+        gfp->safe_short_transient_redistribute;
 
     memset(psv->short_mask_score_rel_save, 0,
            sizeof(psv->short_mask_score_rel_save));

@@ -47,6 +47,10 @@
 #include "VbrTag.h"
 #include "tables.h"
 
+#ifndef LAME_ENABLE_SAFE_TRANSIENT_REDIST_DEFAULT
+#define LAME_ENABLE_SAFE_TRANSIENT_REDIST_DEFAULT 1
+#endif
+
 
 #if defined(__FreeBSD__) && !defined(__alpha__)
 #include <floatingpoint.h>
@@ -2394,6 +2398,8 @@ lame_init_defaults(lame_global_flags * gfp)
 
     gfp->quant_comp = -1;
     gfp->quant_comp_short = -1;
+    gfp->safe_short_transient_redistribute =
+        LAME_ENABLE_SAFE_TRANSIENT_REDIST_DEFAULT;
 
     gfp->msfix = -1;
 

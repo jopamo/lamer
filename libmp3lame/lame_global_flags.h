@@ -96,6 +96,7 @@ struct lame_global_struct {
     int     experimentalY;
     int     experimentalZ;
     int     experimental_short_transient_redistribute;
+    int     safe_short_transient_redistribute;
     int     exp_nspsytune;
 
     int     preset;

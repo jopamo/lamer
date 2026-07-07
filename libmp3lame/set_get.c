@@ -927,6 +927,27 @@ lame_get_experimental_short_transient_redistribute(const lame_global_flags * gfp
     return 0;
 }
 
+int
+lame_set_safe_short_transient_redistribute(lame_global_flags * gfp,
+                                           int safe_short_transient_redistribute)
+{
+    if (is_lame_global_flags_valid(gfp)) {
+        gfp->safe_short_transient_redistribute =
+            safe_short_transient_redistribute;
+        return 0;
+    }
+    return -1;
+}
+
+int
+lame_get_safe_short_transient_redistribute(const lame_global_flags * gfp)
+{
+    if (is_lame_global_flags_valid(gfp)) {
+        return gfp->safe_short_transient_redistribute;
+    }
+    return 0;
+}
+
 
 /* Naoki's psycho acoustic model. */
 int

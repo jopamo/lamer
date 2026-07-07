@@ -247,6 +247,7 @@ fast_log2(ieee754_float32_t x)
         int     experimental_transient_bias;
         int     experimental_short_mask_relax;
         int     experimental_short_transient_redistribute;
+        int     safe_short_transient_redistribute;
     } PsyConst_t;
 
 
