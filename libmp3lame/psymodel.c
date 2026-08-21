@@ -609,13 +609,14 @@ pecalc_l(III_psy_ratio const *mr, FLOAT masking_lower)
 static void
 calc_energy(PsyConst_CB2SB_t const *l, FLOAT const *fftenergy, FLOAT * eb, FLOAT * max, FLOAT * avg)
 {
-    int     b, j;
+    int     b;
+    FLOAT const *p = fftenergy;
 
-    for (b = j = 0; b < l->npart; ++b) {
+    for (b = 0; b < l->npart; ++b) {
         FLOAT   ebb = 0, m = 0;
-        int     i;
-        for (i = 0; i < l->numlines[b]; ++i, ++j) {
-            FLOAT const el = fftenergy[j];
+        FLOAT const *const end = p + l->numlines[b];
+        for (; p != end; ++p) {
+            FLOAT const el = *p;
             assert(el >= 0);
             ebb += el;
             if (m < el)

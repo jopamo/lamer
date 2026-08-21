@@ -111,29 +111,19 @@ scalar_psy_attack_hpf_f32(FLOAT *dst, FLOAT const *src, int n,
     }
 }
 
-static void
-scalar_k_34_4(FLOAT x[4], int l3[4])
+static inline int
+scalar_k_34(FLOAT x)
 {
-    l3[0] = (int) x[0];
-    l3[1] = (int) x[1];
-    l3[2] = (int) x[2];
-    l3[3] = (int) x[3];
-    x[0] += adj43[l3[0]];
-    x[1] += adj43[l3[1]];
-    x[2] += adj43[l3[2]];
-    x[3] += adj43[l3[3]];
-    l3[0] = (int) x[0];
-    l3[1] = (int) x[1];
-    l3[2] = (int) x[2];
-    l3[3] = (int) x[3];
+    int ix = (int) x;
+
+    x += adj43[ix];
+    return (int) x;
 }
 
 static FLOAT
 scalar_vbr_calc_sfb_noise_x34(FLOAT const *xr, FLOAT const *xr34,
                               unsigned int bw, uint8_t sf)
 {
-    FLOAT x[4];
-    int l3[4];
     FLOAT const sfpow = pow20[sf + Q_MAX2];
     FLOAT const sfpow34 = ipow20[sf];
     FLOAT xfsf = 0.0f;
@@ -141,39 +131,36 @@ scalar_vbr_calc_sfb_noise_x34(FLOAT const *xr, FLOAT const *xr34,
     unsigned int const remaining = bw & 0x03u;
 
     while (i-- > 0) {
-        x[0] = sfpow34 * xr34[0];
-        x[1] = sfpow34 * xr34[1];
-        x[2] = sfpow34 * xr34[2];
-        x[3] = sfpow34 * xr34[3];
+        int const l30 = scalar_k_34(sfpow34 * xr34[0]);
+        int const l31 = scalar_k_34(sfpow34 * xr34[1]);
+        int const l32 = scalar_k_34(sfpow34 * xr34[2]);
+        int const l33 = scalar_k_34(sfpow34 * xr34[3]);
+        FLOAT const x0 = fabsf(xr[0]) - sfpow * pow43[l30];
+        FLOAT const x1 = fabsf(xr[1]) - sfpow * pow43[l31];
+        FLOAT const x2 = fabsf(xr[2]) - sfpow * pow43[l32];
+        FLOAT const x3 = fabsf(xr[3]) - sfpow * pow43[l33];
 
-        scalar_k_34_4(x, l3);
-
-        x[0] = fabsf(xr[0]) - sfpow * pow43[l3[0]];
-        x[1] = fabsf(xr[1]) - sfpow * pow43[l3[1]];
-        x[2] = fabsf(xr[2]) - sfpow * pow43[l3[2]];
-        x[3] = fabsf(xr[3]) - sfpow * pow43[l3[3]];
-        xfsf += (x[0] * x[0] + x[1] * x[1]) + (x[2] * x[2] + x[3] * x[3]);
+        xfsf += (x0 * x0 + x1 * x1) + (x2 * x2 + x3 * x3);
 
         xr += 4;
         xr34 += 4;
     }
     if (remaining) {
-        x[0] = x[1] = x[2] = x[3] = 0.0f;
-        switch (remaining) {
-        case 3: x[2] = sfpow34 * xr34[2];
-        case 2: x[1] = sfpow34 * xr34[1];
-        case 1: x[0] = sfpow34 * xr34[0];
-        }
-
-        scalar_k_34_4(x, l3);
-        x[0] = x[1] = x[2] = x[3] = 0.0f;
+        FLOAT x0 = 0.0f, x1 = 0.0f, x2 = 0.0f, x3 = 0.0f;
+        int l30 = 0, l31 = 0, l32 = 0;
 
         switch (remaining) {
-        case 3: x[2] = fabsf(xr[2]) - sfpow * pow43[l3[2]];
-        case 2: x[1] = fabsf(xr[1]) - sfpow * pow43[l3[1]];
-        case 1: x[0] = fabsf(xr[0]) - sfpow * pow43[l3[0]];
+        case 3: l32 = scalar_k_34(sfpow34 * xr34[2]);
+        case 2: l31 = scalar_k_34(sfpow34 * xr34[1]);
+        case 1: l30 = scalar_k_34(sfpow34 * xr34[0]);
         }
-        xfsf += (x[0] * x[0] + x[1] * x[1]) + (x[2] * x[2] + x[3] * x[3]);
+
+        switch (remaining) {
+        case 3: x2 = fabsf(xr[2]) - sfpow * pow43[l32];
+        case 2: x1 = fabsf(xr[1]) - sfpow * pow43[l31];
+        case 1: x0 = fabsf(xr[0]) - sfpow * pow43[l30];
+        }
+        xfsf += (x0 * x0 + x1 * x1) + (x2 * x2 + x3 * x3);
     }
     return xfsf;
 }
@@ -181,36 +168,23 @@ scalar_vbr_calc_sfb_noise_x34(FLOAT const *xr, FLOAT const *xr34,
 static void
 scalar_vbr_quantize_x34(int *l3, FLOAT const *xr34, unsigned int bw, FLOAT sfpow34)
 {
-    FLOAT x[4];
     unsigned int i = bw >> 2u;
     unsigned int const remaining = bw & 0x03u;
 
     while (i-- > 0) {
-        x[0] = sfpow34 * xr34[0];
-        x[1] = sfpow34 * xr34[1];
-        x[2] = sfpow34 * xr34[2];
-        x[3] = sfpow34 * xr34[3];
-
-        scalar_k_34_4(x, l3);
+        l3[0] = scalar_k_34(sfpow34 * xr34[0]);
+        l3[1] = scalar_k_34(sfpow34 * xr34[1]);
+        l3[2] = scalar_k_34(sfpow34 * xr34[2]);
+        l3[3] = scalar_k_34(sfpow34 * xr34[3]);
 
         l3 += 4;
         xr34 += 4;
     }
     if (remaining) {
-        int tmp_l3[4];
-        x[0] = x[1] = x[2] = x[3] = 0.0f;
         switch (remaining) {
-        case 3: x[2] = sfpow34 * xr34[2];
-        case 2: x[1] = sfpow34 * xr34[1];
-        case 1: x[0] = sfpow34 * xr34[0];
-        }
-
-        scalar_k_34_4(x, tmp_l3);
-
-        switch (remaining) {
-        case 3: l3[2] = tmp_l3[2];
-        case 2: l3[1] = tmp_l3[1];
-        case 1: l3[0] = tmp_l3[0];
+        case 3: l3[2] = scalar_k_34(sfpow34 * xr34[2]);
+        case 2: l3[1] = scalar_k_34(sfpow34 * xr34[1]);
+        case 1: l3[0] = scalar_k_34(sfpow34 * xr34[0]);
         }
     }
 }
