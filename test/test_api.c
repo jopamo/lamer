@@ -1819,6 +1819,7 @@ test_hip_decode_stubs(void)
 {
     /* init/exit round-trip */
     hip_t hip = hip_decode_init();
+    hip_t hip_headers;
     ASSERT(hip != NULL, "hip_decode_init should return non-NULL");
 
     for (int i = 0; i < 128; i++) {
@@ -1877,12 +1878,20 @@ test_hip_decode_stubs(void)
     ASSERT(ret < 0, "hip_decode should return -1 (no mpg123)");
 #endif
 
-    ret = hip_decode_headers(hip, mp3buf, mp3len, dec_l, dec_r, &md);
+    /*
+     * Decoder handles are streaming state machines.  The first call has
+     * consumed this input, so use a fresh handle for the independent headers
+     * check rather than feeding the same stream twice.
+     */
+    hip_headers = hip_decode_init();
+    ASSERT(hip_headers != NULL, "hip_decode_init for headers should succeed");
+    ret = hip_decode_headers(hip_headers, mp3buf, mp3len, dec_l, dec_r, &md);
 #ifdef HAVE_MPG123
     ASSERT(ret >= 0, "hip_decode_headers should not fail with mpg123");
 #else
     ASSERT(ret < 0, "hip_decode_headers should return -1 (no mpg123)");
 #endif
+    hip_decode_exit(hip_headers);
 
     if (hip2) {
         ret = hip_decode1(hip2, mp3buf, mp3len, dec_l, dec_r);
