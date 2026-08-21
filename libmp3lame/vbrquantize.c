@@ -112,6 +112,12 @@ struct algo_s {
 #ifndef STEADY_TONAL_OVERCOUNT_SLOP
 #define STEADY_TONAL_OVERCOUNT_SLOP 2
 #endif
+#ifndef STEADY_TONAL_GLOBAL_OVER_NOISE_SLOP
+#define STEADY_TONAL_GLOBAL_OVER_NOISE_SLOP 0.0f
+#endif
+#ifndef SHORT_REDIST_GLOBAL_OVER_NOISE_SLOP
+#define SHORT_REDIST_GLOBAL_OVER_NOISE_SLOP 0.0f
+#endif
 
 typedef struct {
     FLOAT   max_noise;
@@ -280,27 +286,59 @@ short_transient_build_redistributed_xmin(FLOAT *redis_xmin,
 }
 
 static int
-short_redist_profile_better(short_window_noise_t const *candidate, int candidate_bits,
-                            short_window_noise_t const *best, int best_bits)
+short_redist_profile_better(short_window_noise_t const *candidate_attack,
+                            calc_noise_result const *candidate_global,
+                            int candidate_bits,
+                            short_window_noise_t const *best_attack,
+                            calc_noise_result const *best_global,
+                            int best_bits)
 {
-    if (candidate->over_noise < best->over_noise) {
+    if (candidate_attack->over_noise < best_attack->over_noise) {
         return 1;
     }
-    if (candidate->over_noise > best->over_noise) {
+    if (candidate_attack->over_noise > best_attack->over_noise) {
         return 0;
     }
-    if (candidate->max_noise < best->max_noise) {
+    if (candidate_attack->max_noise < best_attack->max_noise) {
         return 1;
     }
-    if (candidate->max_noise > best->max_noise) {
+    if (candidate_attack->max_noise > best_attack->max_noise) {
+        return 0;
+    }
+    /*
+     * The attack window is the primary target, but it is not the whole
+     * signal.  When two profiles protect it equally, prefer the profile
+     * which does less damage elsewhere instead of letting the first legal
+     * profile win.
+     */
+    if (candidate_global->over_noise < best_global->over_noise) {
+        return 1;
+    }
+    if (candidate_global->over_noise > best_global->over_noise) {
+        return 0;
+    }
+    if (candidate_global->max_noise < best_global->max_noise) {
+        return 1;
+    }
+    if (candidate_global->max_noise > best_global->max_noise) {
+        return 0;
+    }
+    if (candidate_global->over_count < best_global->over_count) {
+        return 1;
+    }
+    if (candidate_global->over_count > best_global->over_count) {
         return 0;
     }
     return candidate_bits < best_bits;
 }
 
 static int
-steady_tonal_profile_better(steady_tonal_failure_t const *candidate, int candidate_bits,
-                            steady_tonal_failure_t const *best, int best_bits)
+steady_tonal_profile_better(steady_tonal_failure_t const *candidate,
+                            calc_noise_result const *candidate_global,
+                            int candidate_bits,
+                            steady_tonal_failure_t const *best,
+                            calc_noise_result const *best_global,
+                            int best_bits)
 {
     if (candidate->failure_db_sum < best->failure_db_sum) {
         return 1;
@@ -312,6 +350,24 @@ steady_tonal_profile_better(steady_tonal_failure_t const *candidate, int candida
         return 1;
     }
     if (candidate->max_failure_db > best->max_failure_db) {
+        return 0;
+    }
+    if (candidate_global->over_noise < best_global->over_noise) {
+        return 1;
+    }
+    if (candidate_global->over_noise > best_global->over_noise) {
+        return 0;
+    }
+    if (candidate_global->max_noise < best_global->max_noise) {
+        return 1;
+    }
+    if (candidate_global->max_noise > best_global->max_noise) {
+        return 0;
+    }
+    if (candidate_global->over_count < best_global->over_count) {
+        return 1;
+    }
+    if (candidate_global->over_count > best_global->over_count) {
         return 0;
     }
     return candidate_bits < best_bits;
@@ -587,8 +643,12 @@ short_transient_redistribute_retry(lame_internal_flags *gfc,
 
                     if (legal_profile
                         && (!have_legal_profile
-                            || short_redist_profile_better(&new_attack_noise, new_bits,
-                                                           &best_attack_noise, best_bits))) {
+                            || short_redist_profile_better(&new_attack_noise,
+                                                           &noise_retry_orig,
+                                                           new_bits,
+                                                           &best_attack_noise,
+                                                           &best_noise_orig,
+                                                           best_bits))) {
                         have_legal_profile = 1;
                         best_profile = profile_index;
                         best_gi = *cod_info;
@@ -678,6 +738,10 @@ short_transient_redistribute_retry(lame_internal_flags *gfc,
                     int const global_max_ok =
                         best_noise_orig.max_noise
                         <= noise_orig.max_noise + mode->global_max_noise_slop;
+                    int const global_over_noise_ok =
+                        best_noise_orig.over_noise
+                        <= noise_orig.over_noise
+                           + SHORT_REDIST_GLOBAL_OVER_NOISE_SLOP;
                     int const over_count_ok =
                         best_noise_orig.over_count
                         <= noise_orig.over_count + mode->over_count_slop;
@@ -686,6 +750,7 @@ short_transient_redistribute_retry(lame_internal_flags *gfc,
                         && attack_over_improved
                         && attack_max_ok
                         && global_max_ok
+                        && global_over_noise_ok
                         && over_count_ok;
 
                     if (accept) {
@@ -699,6 +764,9 @@ short_transient_redistribute_retry(lame_internal_flags *gfc,
                     }
                     else if (!global_max_ok) {
                         reject_reason = "global_max_noise";
+                    }
+                    else if (!global_over_noise_ok) {
+                        reject_reason = "global_over_noise";
                     }
                     else {
                         reject_reason = "over_count";
@@ -997,8 +1065,12 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
 
                     if (legal_profile
                         && (!have_legal_profile
-                            || steady_tonal_profile_better(&new_selected_failure, new_bits,
-                                                           &best_selected_failure, best_bits))) {
+                            || steady_tonal_profile_better(&new_selected_failure,
+                                                           &noise_retry_orig,
+                                                           new_bits,
+                                                           &best_selected_failure,
+                                                           &best_noise_orig,
+                                                           best_bits))) {
                         have_legal_profile = 1;
                         best_profile = profile_index;
                         best_gi = *cod_info;
@@ -1106,6 +1178,10 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                     int const global_max_ok =
                         best_noise_orig.max_noise
                         <= noise_orig.max_noise + STEADY_TONAL_GLOBAL_MAX_NOISE_SLOP;
+                    int const global_over_noise_ok =
+                        best_noise_orig.over_noise
+                        <= noise_orig.over_noise
+                           + STEADY_TONAL_GLOBAL_OVER_NOISE_SLOP;
                     int const over_count_ok =
                         best_noise_orig.over_count
                         <= noise_orig.over_count + STEADY_TONAL_OVERCOUNT_SLOP;
@@ -1114,6 +1190,7 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                         && selected_failure_improved
                         && selected_max_failure_ok
                         && global_max_ok
+                        && global_over_noise_ok
                         && over_count_ok;
 
                     if (accept
@@ -1133,6 +1210,9 @@ steady_tonal_protect_retry(lame_internal_flags *gfc,
                     }
                     else if (!global_max_ok) {
                         reject_reason = "global_max_noise";
+                    }
+                    else if (!global_over_noise_ok) {
+                        reject_reason = "global_over_noise";
                     }
                     else {
                         reject_reason = "over_count";
