@@ -1864,14 +1864,21 @@ test_hip_decode_stubs(void)
 
     ASSERT(mp3len > 0, "encoded mp3 should be non-empty");
 
-    /* decode stubs return -1 (no HAVE_MPG123 backend) */
-    short dec_l[2304], dec_r[2304];
+    /*
+     * hip_decode() is specified to receive one MPEG frame per call.  This CBR fixture has
+     * 417-byte frames plus an optional padding byte; keeping the input to one
+     * frame bounds each PCM channel to 1152 samples as documented.
+     */
+    ASSERT(mp3len >= 3, "encoded MP3 should contain a complete header");
+    size_t const mp3frame_len = 417 + ((mp3buf[2] >> 1) & 1);
+    short dec_l[1152], dec_r[1152];
     mp3data_struct md;
     memset(&md, 0, sizeof(md));
+    ASSERT(mp3len >= mp3frame_len, "encoded MP3 should contain one complete frame");
 
     int ret;
 
-    ret = hip_decode(hip, mp3buf, mp3len, dec_l, dec_r);
+    ret = hip_decode(hip, mp3buf, mp3frame_len, dec_l, dec_r);
 #ifdef HAVE_MPG123
     ASSERT(ret >= 0, "hip_decode should not fail with mpg123");
 #else
@@ -1885,7 +1892,7 @@ test_hip_decode_stubs(void)
      */
     hip_headers = hip_decode_init();
     ASSERT(hip_headers != NULL, "hip_decode_init for headers should succeed");
-    ret = hip_decode_headers(hip_headers, mp3buf, mp3len, dec_l, dec_r, &md);
+    ret = hip_decode_headers(hip_headers, mp3buf, mp3frame_len, dec_l, dec_r, &md);
 #ifdef HAVE_MPG123
     ASSERT(ret >= 0, "hip_decode_headers should not fail with mpg123");
 #else
@@ -1894,22 +1901,28 @@ test_hip_decode_stubs(void)
     hip_decode_exit(hip_headers);
 
     if (hip2) {
-        ret = hip_decode1(hip2, mp3buf, mp3len, dec_l, dec_r);
+        ret = hip_decode1(hip2, mp3buf, mp3frame_len, dec_l, dec_r);
 #ifdef HAVE_MPG123
         ASSERT(ret >= 0, "hip_decode1 should not fail with mpg123");
 #else
         ASSERT(ret < 0, "hip_decode1 should return -1 (no mpg123)");
 #endif
 
-        ret = hip_decode1_headers(hip2, mp3buf, mp3len, dec_l, dec_r, &md);
+        hip_decode_exit(hip2);
+        hip2 = hip_decode_init_gapless();
+        ASSERT(hip2 != NULL, "hip_decode_init_gapless should remain available");
+        ret = hip_decode1_headers(hip2, mp3buf, mp3frame_len, dec_l, dec_r, &md);
 #ifdef HAVE_MPG123
         ASSERT(ret >= 0, "hip_decode1_headers should not fail with mpg123");
 #else
         ASSERT(ret < 0, "hip_decode1_headers should return -1 (no mpg123)");
 #endif
 
+        hip_decode_exit(hip2);
+        hip2 = hip_decode_init_gapless();
+        ASSERT(hip2 != NULL, "hip_decode_init_gapless should remain available");
         int enc_delay, enc_padding;
-        ret = hip_decode1_headersB(hip2, mp3buf, mp3len, dec_l, dec_r,
+        ret = hip_decode1_headersB(hip2, mp3buf, mp3frame_len, dec_l, dec_r,
                                    &md, &enc_delay, &enc_padding);
 #ifdef HAVE_MPG123
         ASSERT(ret >= 0, "hip_decode1_headersB should not fail with mpg123");

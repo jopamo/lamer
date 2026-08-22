@@ -157,10 +157,11 @@ steady_tonal_band_metric(lamer_dsp const *dsp,
     int const width = cod_info->width[sfb];
     int const *const scalefac = cod_info->scalefac;
     int const *const ix = cod_info->l3_enc;
+    int const scalefac_value =
+        scalefac[sfb] + (cod_info->preflag ? pretab[sfb] : 0);
     FLOAT const step =
         POW20(cod_info->global_gain
-              - (((scalefac[sfb] + (cod_info->preflag ? pretab[sfb] : 0))
-                  << (cod_info->scalefac_scale + 1)))
+              - scalefac_value * (1 << (cod_info->scalefac_scale + 1))
               - cod_info->subblock_gain[cod_info->window[sfb]] * 8);
     FLOAT source_energy = 0.0f;
     FLOAT quant_energy = 0.0f;

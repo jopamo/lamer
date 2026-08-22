@@ -6,6 +6,28 @@ project(
   default_options : ['c_std=gnu99', 'warning_level=1'],
 )
 
+git = find_program('git', required : false)
+lamer_git_hash = 'unknown'
+lamer_snapshot_date = 'unknown'
+
+if git.found()
+  git_hash = run_command(
+    git, '-C', meson.project_source_root(), 'rev-parse', '--short=7', 'HEAD',
+    check : false,
+  )
+  if git_hash.returncode() == 0
+    lamer_git_hash = git_hash.stdout().strip()
+  endif
+
+  git_date = run_command(
+    git, '-C', meson.project_source_root(), 'show', '-s', '--format=%cs', 'HEAD',
+    check : false,
+  )
+  if git_date.returncode() == 0
+    lamer_snapshot_date = git_date.stdout().strip()
+  endif
+endif
+
 cc = meson.get_compiler('c')
 simd_opt = get_option('simd')
 simd_runtime_dispatch_opt = get_option('simd-runtime-dispatch')
@@ -62,6 +84,8 @@ conf.set('LAMER_ENABLE_SIMD_RUNTIME_DISPATCH', simd_enabled and simd_runtime_dis
 conf.set('LAMER_HAVE_X86_SSE2', simd_x86_sse2)
 conf.set('LAMER_HAVE_X86_AVX2', simd_x86_avx2)
 conf.set('LAMER_HAVE_AARCH64_NEON', simd_aarch64_neon)
+conf.set_quoted('LAMER_GIT_HASH', lamer_git_hash)
+conf.set_quoted('LAMER_SNAPSHOT_DATE', lamer_snapshot_date)
 
 configure_file(
   input : 'config.h.meson',

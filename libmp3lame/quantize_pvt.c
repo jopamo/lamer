@@ -827,9 +827,9 @@ calc_noise(gr_info const *const cod_info,
 
     for (sfb = 0; sfb < psymax; sfb++) {
         int const width_sfb = width[sfb];
+        int const scalefac_value = (*scalefac++) + (preflag ? pretab[sfb] : 0);
         int const s =
-            global_gain - (((*scalefac++) + (preflag ? pretab[sfb] : 0))
-                           << scalefac_shift)
+            global_gain - scalefac_value * (1 << scalefac_shift)
             - subblock_gain[window[sfb]] * 8;
         FLOAT const r_l3_xmin = 1.f / *l3_xmin++;
         FLOAT   distort_ = 0.0f;

@@ -19,6 +19,8 @@
 #mesondefine LAMER_HAVE_X86_SSE2
 #mesondefine LAMER_HAVE_X86_AVX2
 #mesondefine LAMER_HAVE_AARCH64_NEON
+#mesondefine LAMER_GIT_HASH
+#mesondefine LAMER_SNAPSHOT_DATE
 
 #ifndef HAVE_IEEE754_FLOAT32_T
 typedef float ieee754_float32_t;

@@ -46,8 +46,32 @@
 #define ID3TAGS_EXTENDED
 #endif
 
+#ifndef LAMER_GIT_HASH
+#define LAMER_GIT_HASH "unknown"
+#endif
+
+#ifndef LAMER_SNAPSHOT_DATE
+#define LAMER_SNAPSHOT_DATE "unknown"
+#endif
+
+#define LAMER_PROJECT_URL "https://github.com/jopamo/lamer"
+
 static int const lame_alpha_version_enabled = LAME_ALPHA_VERSION;
 static int const internal_opts_enabled = INTERNAL_OPTS;
+
+static const char *
+display_program_name(const char * const program_name)
+{
+    const char *name = strrchr(program_name, '/');
+
+#ifdef _WIN32
+    const char *const backslash = strrchr(program_name, '\\');
+    if (backslash != NULL && (name == NULL || backslash > name))
+        name = backslash;
+#endif
+
+    return name != NULL ? name + 1 : program_name;
+}
 
 static void
 wait_for(FILE * const fp, int lessmode)
@@ -81,27 +105,10 @@ display_bitrate(FILE * const fp, const char *const version, const int d, const i
 int
 frontend_version_print(FILE * const fp)
 {
-    const char *b = get_lame_os_bitness();
-    const char *v = get_lame_version();
-    const char *u = get_lame_url();
-    const size_t lenb = strlen(b);
-    const size_t lenv = strlen(v);
-    const size_t lenu = strlen(u);
-    const size_t lw = 80;
-    const size_t sw = 16;
+    fprintf(fp, "lamer version %s (snapshot %s)\n", LAMER_GIT_HASH,
+            LAMER_SNAPSHOT_DATE);
+    fprintf(fp, "LAME-compatible MP3 encoder (%s)\n\n", LAMER_PROJECT_URL);
 
-    if (lw >= lenb + lenv + lenu + sw || lw < lenu + 2)
-        if (lenb > 0)
-            fprintf(fp, "LAME %s version %s (%s)\n\n", b, v, u);
-        else
-            fprintf(fp, "LAME version %s (%s)\n\n", v, u);
-    else {
-        int const n_white_spaces = (int)((lenu + 2) > lw ? 0 : lw - 2 - lenu);
-        if (lenb > 0)
-            fprintf(fp, "LAME %s version %s\n%*s(%s)\n\n", b, v, n_white_spaces, "", u);
-        else
-            fprintf(fp, "LAME version %s\n%*s(%s)\n\n", v, n_white_spaces, "", u);
-    }
     if (lame_alpha_version_enabled)
         fprintf(fp, "warning: alpha versions should be used for testing only\n\n");
 
@@ -138,6 +145,8 @@ frontend_print_license(FILE * const fp)
 int
 usage(FILE * const fp, const char *ProgramName)
 {
+    const char *const name = display_program_name(ProgramName);
+
     frontend_version_print(fp);
     fprintf(fp,
             "usage: %s [options] <infile> [outfile]\n"
@@ -151,19 +160,21 @@ usage(FILE * const fp, const char *ProgramName)
             " or:\n"
             "     \"%s --longhelp\"\n"
             "  or \"%s -?\"              for a complete options list\n\n",
-            ProgramName, ProgramName, ProgramName, ProgramName, ProgramName);
+            name, name, name, name, name);
     return 0;
 }
 
 int
 short_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramName)
 {
+    const char *const name = display_program_name(ProgramName);
+
     frontend_version_print(fp);
     fprintf(fp,
             "usage: %s [options] <infile> [outfile]\n"
             "\n"
             "    <infile> and/or <outfile> can be \"-\", which means stdin/stdout.\n"
-            "\n" "RECOMMENDED:\n" "    lame -V2 input.wav output.mp3\n" "\n", ProgramName);
+            "\n" "RECOMMENDED:\n" "    %s -V2 input.wav output.mp3\n" "\n", name, name);
     fprintf(fp,
             "OPTIONS:\n"
             "    -b bitrate      set the bitrate, default 128 kbps\n"
@@ -287,12 +298,14 @@ frontend_help_developer_switches(FILE * const fp)
 int
 long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramName, int lessmode)
 {
+    const char *const name = display_program_name(ProgramName);
+
     frontend_version_print(fp);
     fprintf(fp,
             "usage: %s [options] <infile> [outfile]\n"
             "\n"
             "    <infile> and/or <outfile> can be \"-\", which means stdin/stdout.\n"
-            "\n" "RECOMMENDED:\n" "    lame -V2 input.wav output.mp3\n" "\n", ProgramName);
+            "\n" "RECOMMENDED:\n" "    %s -V2 input.wav output.mp3\n" "\n", name, name);
     fprintf(fp,
             "OPTIONS:\n"
             "  Input options:\n"
