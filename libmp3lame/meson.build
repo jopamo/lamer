@@ -5,15 +5,20 @@ libmp3lame_sources = files(
   'fft.c',
   'gain_analysis.c',
   'id3tag.c',
-  'hip_decode.c',
   'lame.c',
+  'lame_config.c',
+  'lame_encode.c',
+  'lame_stream.c',
   'newmdct.c',
   'presets.c',
   'psymodel.c',
   'quantize.c',
   'quantize_pvt.c',
   'reservoir.c',
-  'set_get.c',
+  'set_get_codec.c',
+  'set_get_info.c',
+  'set_get_input.c',
+  'set_get_psy.c',
   'steadyprotect.c',
   'tables.c',
   'takehiro.c',
@@ -33,10 +38,6 @@ endif
 
 if simd_aarch64_neon
   libmp3lame_sources += files('vector/dsp_aarch64_neon.c')
-endif
-
-if mpg123_dep.found()
-  libmp3lame_deps += mpg123_dep
 endif
 
 foreach arg : ['-fno-semantic-interposition', '-fno-math-errno']
@@ -70,5 +71,5 @@ libmp3lame = library(
   dependencies : libmp3lame_deps,
   link_whole : libmp3lame_link_whole,
   install : true,
-  soversion : '0',
+  soversion : '1',
 )

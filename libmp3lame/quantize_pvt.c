@@ -105,7 +105,7 @@ const scalefac_struct sfBandIndex[9] = {
      , {0, 0, 0, 0, 0, 0, 0} /*  sfb21 pseudo sub bands */
      , {0, 0, 0, 0, 0, 0, 0} /*  sfb12 pseudo sub bands */
      },
-    {                   /* Table B.2.c: 24 kHz */ /* docs: 332. mpg123(broken): 330 */
+    {                   /* Table B.2.c: 24 kHz */ /* reference: 330 */
      {0, 6, 12, 18, 24, 30, 36, 44, 54, 66, 80, 96, 114, 136, 162, 194, 232, 278, 332, 394, 464,
       540, 576},
      {0, 4, 8, 12, 18, 26, 36, 48, 62, 80, 104, 136, 180, 192}

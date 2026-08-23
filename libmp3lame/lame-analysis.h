@@ -41,8 +41,6 @@ typedef struct transient_info_s {
 
 
 #define READ_AHEAD 40   /* number of frames to read ahead */
-#define MAXMPGLAG READ_AHEAD /* if the mpg123 lag becomes bigger than this
-                                we have to stop */
 #define NUMBACK 6       /* number of frames we can back up */
 #define NUMPINFO (NUMBACK+READ_AHEAD+1)
 
@@ -50,13 +48,11 @@ typedef struct transient_info_s {
 
 struct plotting_data {
     int     frameNum;        /* current frame number */
-    int     frameNum123;
     int     num_samples;     /* number of pcm samples read for this frame */
     double  frametime;       /* starting time of frame, in seconds */
     double  pcmdata[2][1600];
     double  pcmdata2[2][1152 + 1152 - DECDELAY];
     double  xr[2][2][576];
-    double  mpg123xr[2][2][576];
     double  ms_ratio[2];
     double  ms_ener_ratio[2];
 
@@ -94,7 +90,6 @@ struct plotting_data {
     int     blocktype[2][2];
     int     scalefac_scale[2][2];
     int     preflag[2][2];
-    int     mpg123blocktype[2][2];
     int     mixed[2][2];
     int     mainbits[2][2];
     int     sfbits[2][2];

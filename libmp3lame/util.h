@@ -472,7 +472,6 @@ fast_log2(ieee754_float32_t x)
 
         int     findReplayGain; /* find the RG value? default=0       */
         int     findPeakSample;
-        int     decode_on_the_fly; /* decode on the fly? default=0                */
         int     analysis;
         int     disable_reservoir;
         int     buffer_constraint;  /* enforce ISO spec as much as possible   */
@@ -596,7 +595,6 @@ fast_log2(ieee754_float32_t x)
 
         /* used by the frame analyzer */
         plotting_data *pinfo;
-        hip_t hip;
 
         /* functions to replace with CPU feature optimized versions */
         lamer_dsp dsp;
@@ -640,15 +638,6 @@ fast_log2(ieee754_float32_t x)
                         sample_t *const mfbuf[2],
                         sample_t const *const in_buffer[2], int nsamples, int *n_in, int *n_out);
 
-/* same as lame_decode1 (look in lame.h), but returns
-   unclipped raw floating-point samples. It is declared
-   here, not in lame.h, because it returns LAME's
-   internal type sample_t. No more than 1152 samples
-   per channel are allowed. */
-    int     hip_decode1_unclipped(hip_t hip, unsigned char *mp3buf,
-                                   size_t len, sample_t pcm_l[], sample_t pcm_r[]);
-
-
     extern int has_MMX(void);
     extern int has_3DNow(void);
     extern int has_SSE(void);
@@ -672,9 +661,6 @@ fast_log2(ieee754_float32_t x)
 #define MSGF    lame_msgf
 
     int     is_lame_internal_flags_valid(const lame_internal_flags * gfp);
-    
-    extern void hip_set_pinfo(hip_t hip, plotting_data* pinfo);
-    extern void hip_finish_pinfo(hip_t hip);
 
 #ifdef __cplusplus
 }

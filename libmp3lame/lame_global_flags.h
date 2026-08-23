@@ -45,14 +45,12 @@ struct lame_global_struct {
     /* general control params */
     int     analysis;        /* collect data for a MP3 frame analyzer?      */
     int     write_lame_tag;  /* add Xing VBR tag?                           */
-    int     decode_only;     /* use lame to decode MPEG audio to wav        */
     int     quality;         /* quality setting 0=best,  9=worst  default=5 */
     MPEG_mode mode;          /* see enum in lame.h
                                 default = LAME picks best value             */
     int     force_ms;        /* force M/S mode.  requires mode=1            */
     int     free_format;     /* use free format? default=0                  */
     int     findReplayGain;  /* find the RG value? default=0       */
-    int     decode_on_the_fly; /* decode on the fly? default=0                */
     int     write_id3tag_automatic; /* 1 (default) writes ID3 tags, 0 not */
 
     int     nogap_total;

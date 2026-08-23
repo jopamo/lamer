@@ -51,11 +51,6 @@ if simd_enabled and host_cpu_family == 'aarch64'
   simd_aarch64_neon = cc.has_header('arm_neon.h')
 endif
 
-mpg123_dep = dependency('libmpg123', required : false)
-if not mpg123_dep.found()
-  mpg123_dep = dependency('mpg123', required : false)
-endif
-
 add_project_arguments(
   [
     '-D_GNU_SOURCE',
@@ -73,7 +68,6 @@ conf.set('HAVE_INTTYPES_H', cc.has_header('inttypes.h'))
 conf.set('HAVE_LANGINFO_H', false)
 conf.set('HAVE_LIMITS_H', cc.has_header('limits.h'))
 conf.set('HAVE_MEMCPY', cc.has_function('memcpy', prefix : '#include <string.h>'))
-conf.set('HAVE_MPG123', mpg123_dep.found())
 conf.set('HAVE_STDINT_H', cc.has_header('stdint.h'))
 conf.set('HAVE_STRCHR', cc.has_function('strchr', prefix : '#include <string.h>'))
 conf.set('HAVE_UNISTD_H', cc.has_header('unistd.h'))
@@ -97,13 +91,11 @@ core_includes = include_directories(
   '.',
   'include',
   'libmp3lame',
-  'frontend',
 )
 
 libm = cc.find_library('m', required : false)
 
 subdir('libmp3lame')
-subdir('frontend')
 
 install_headers('include/lame.h')
 install_data(
