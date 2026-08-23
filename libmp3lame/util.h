@@ -538,7 +538,6 @@ struct lame_internal_flags {
 
     /* functions to replace with CPU feature optimized versions */
     lamer_dsp dsp;
-    void (*fft_fht)(FLOAT*, int);
     void (*init_xrpow_core)(gr_info* const cod_info, FLOAT xrpow[576], int upper, FLOAT* sum);
 
     lame_report_function report_msg;
