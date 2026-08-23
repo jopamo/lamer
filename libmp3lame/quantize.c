@@ -1831,21 +1831,25 @@ static void calc_target_bits(lame_internal_flags* gfc, const FLOAT pe[2][2], FLO
     mean_bits /= (cfg->mode_gr * cfg->channels_out);
 
     /*
-     * Keep a compression-ratio baseline, then steer it from the current
-     * reservoir occupancy.  A full reservoir means the previous frames
-     * underspent their allowance, so hold back more bits; a depleted one
-     * can safely spend more on the current frame.
+       res_factor is the percentage of the target bitrate that should
+       normally be used.  Keep the legacy compression-ratio formula as the
+       floor.  Only spend extra reservoir bits once the reservoir is
+       substantially full.
      */
     res_factor = .93 + .07 * (11.0 - cfg->compression_ratio) / (11.0 - 5.5);
-    if (gfc->sv_enc.ResvMax > 0) {
-        FLOAT const target_fill = 0.5 * gfc->sv_enc.ResvMax;
-        FLOAT const fill_error = (gfc->sv_enc.ResvSize - target_fill) / gfc->sv_enc.ResvMax;
-        res_factor -= 0.08 * fill_error;
-    }
-    if (res_factor < .88)
-        res_factor = .88;
+    if (res_factor < .90)
+        res_factor = .90;
     if (res_factor > 1.00)
         res_factor = 1.00;
+    if (gfc->sv_enc.ResvMax > 0 && gfc->sv_enc.ResvSize * 10 > gfc->sv_enc.ResvMax * 8) {
+        int const high_water = gfc->sv_enc.ResvMax * 8 / 10;
+        int const span = gfc->sv_enc.ResvMax - high_water;
+        FLOAT const correction = .08 * (gfc->sv_enc.ResvSize - high_water) / span;
+
+        res_factor += correction;
+        if (res_factor > 1.00)
+            res_factor = 1.00;
+    }
 
     for (gr = 0; gr < cfg->mode_gr; gr++) {
         int sum = 0;
