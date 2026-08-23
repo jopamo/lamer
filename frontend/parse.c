@@ -22,37 +22,47 @@
 
 /* $Id$ */
 
+/*
+ * Command line parsing related functions
+ *
+ * Copyright (c) 1999 Mark Taylor
+ *               2000-2017 Robert Hegemann
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Library General Public License for more details.
+ *
+ */
+
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
 
-#include <assert.h>
 #include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 #include <math.h>
- 
-#ifdef STDC_HEADERS
-# include <stdio.h>
-# include <stdlib.h>
-# include <string.h>
-#else
-# ifndef HAVE_STRCHR
-#  define strchr index
-#  define strrchr rindex
-# endif
-char   *strchr(), *strrchr();
-# ifndef HAVE_MEMCPY
-#  define memcpy(d, s, n) bcopy ((s), (d), (n))
-#  define memmove(d, s, n) bcopy ((s), (d), (n))
-# endif
-#endif
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-
-#ifdef HAVE_LIMITS_H
-# include <limits.h>
+#ifdef HAVE_ICONV
+# include <iconv.h>
+# ifdef HAVE_LANGINFO_H
+#  include <langinfo.h>
+#  include <locale.h>
+# endif
 #endif
 
 #include "lame.h"
-
 #include "parse.h"
 #include "main.h"
 #include "get_audio.h"
@@ -60,22 +70,11 @@ char   *strchr(), *strrchr();
 #include "path.h"
 #include "usage.h"
 
-#undef dimension_of
-#define dimension_of(array) (sizeof(array)/sizeof(array[0]))
-
 #ifdef WITH_DMALLOC
-#include <dmalloc.h>
+# include <dmalloc.h>
 #endif
 
-                 
-#ifdef HAVE_ICONV
-#include <iconv.h>
-#include <errno.h>
-#ifdef HAVE_LANGINFO_H
-#include <locale.h>
-#include <langinfo.h>
-#endif
-#endif /* HAVE_ICONV */
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 #if defined _ALLOW_INTERNAL_OPTIONS
 #define INTERNAL_OPTS 1
@@ -85,9 +84,7 @@ char   *strchr(), *strrchr();
 
 #if (INTERNAL_OPTS!=0)
 #include "set_get.h"
-#define DEV_HELP(a) a
 #else
-#define DEV_HELP(a)
 #define lame_set_tune(a,b) (void)0
 #define lame_set_short_threshold(a,b,c) (void)0
 #define lame_set_maskingadjust(a,b) (void)0
@@ -99,10 +96,12 @@ char   *strchr(), *strrchr();
 #define lame_set_sfscale(a,b) (void)0
 #endif
 
-static int const internal_opts_enabled = INTERNAL_OPTS;
+static const int internal_opts_enabled = INTERNAL_OPTS;
 
-/* GLOBAL VARIABLES.  set by parse_args() */
-/* we need to clean this up */
+/*
+ * Compatibility-visible frontend state.  Keep these symbols while lamer
+ * remains a drop-in replacement; parser internals should not add new globals.
+ */
 
 ReaderConfig global_reader = { sf_unknown, 0, 0, 0, 0 };
 WriterConfig global_writer = { 0 };
@@ -111,7 +110,7 @@ UiConfig global_ui_config = {0,0,0,0};
 
 DecoderConfig global_decoder;
 
-RawPCMConfig global_raw_pcm = 
+RawPCMConfig global_raw_pcm =
 { /* in_bitwidth */ 16
 , /* in_signed   */ -1
 , /* in_endian   */ ByteOrderLittleEndian
@@ -128,247 +127,556 @@ typedef enum TextEncoding
 } TextEncoding;
 
 #ifdef HAVE_ICONV
-#define ID3TAGS_EXTENDED
-/* search for Zero termination in multi-byte strings */
-static size_t
-strlenMultiByte(char const* str, size_t w)
-{    
-    size_t n = 0;
-    if (str != 0) {
-        size_t i;
-        for (n = 0; ; ++n) {
-            size_t x = 0;
-            for (i = 0; i < w; ++i) {
-                x += *str++ == 0 ? 1 : 0;
-            }
-            if (x == w) {
-                break;
+# define ID3TAGS_EXTENDED
+
+static const char *
+current_character_encoding(void)
+{
+# ifdef HAVE_LANGINFO_H
+    const char *codeset = nl_langinfo(CODESET);
+
+    if (codeset != NULL && codeset[0] != '\0')
+        return codeset;
+# endif
+
+    {
+        const char *locale_name = getenv("LC_ALL");
+        const char *dot;
+
+        if (locale_name == NULL || locale_name[0] == '\0')
+            locale_name = getenv("LC_CTYPE");
+        if (locale_name == NULL || locale_name[0] == '\0')
+            locale_name = getenv("LANG");
+        if (locale_name == NULL || locale_name[0] == '\0')
+            return "UTF-8";
+
+        dot = strrchr(locale_name, '.');
+        if (dot != NULL && dot[1] != '\0')
+            return dot + 1;
+    }
+
+    return "UTF-8";
+}
+
+
+static iconv_t
+open_iconv(const char *to_code, const char *from_code)
+{
+    iconv_t cd = iconv_open(to_code, from_code);
+
+    if (cd == (iconv_t) -1) {
+        const char *suffix = strstr(to_code, "//TRANSLIT");
+
+        if (suffix != NULL) {
+            size_t len = (size_t) (suffix - to_code);
+            char plain[64];
+
+            if (len < sizeof(plain)) {
+                memcpy(plain, to_code, len);
+                plain[len] = '\0';
+                cd = iconv_open(plain, from_code);
             }
         }
     }
-    return n;
+
+    return cd;
 }
 
-static char*
-currentCharacterEncoding()
-{
-#ifdef HAVE_LANGINFO_H
-    char* cur_code = nl_langinfo(CODESET);
-#else
-    char* env_lang = getenv("LANG");
-    char* xxx_code = env_lang == NULL ? NULL : strrchr(env_lang, '.');
-    char* cur_code = xxx_code == NULL ? "" : xxx_code+1;
-#endif
-    return cur_code;
-}
 
-static size_t
-currCharCodeSize(void)
+static char *
+convert_encoding(const char *src, const char *target_encoding,
+                 const unsigned char *prefix, size_t prefix_size)
 {
-    size_t n = 1;
-    char dst[32];
-    char* src = "A";
-    char* cur_code = currentCharacterEncoding();
-    iconv_t xiconv = iconv_open(cur_code, "ISO_8859-1");
-    if (xiconv != (iconv_t)-1) {
-        for (n = 0; n < 32; ++n) {
-            char* i_ptr = src;
-            char* o_ptr = dst;
-            size_t srcln = 1;
-            size_t avail = n;
-            size_t rc = iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
-            if (rc != (size_t)-1) {
-                break;
-            }
-        }
-        iconv_close(xiconv);
+    const char *source_encoding;
+    iconv_t cd;
+    char *buffer;
+    char *input;
+    char *output;
+    size_t input_left;
+    size_t output_left;
+    size_t capacity;
+
+    if (src == NULL || target_encoding == NULL)
+        return NULL;
+
+    source_encoding = current_character_encoding();
+    cd = open_iconv(target_encoding, source_encoding);
+    if (cd == (iconv_t) -1)
+        return NULL;
+
+    input_left = strlen(src);
+
+    if (input_left > (SIZE_MAX - 32) / 4) {
+        iconv_close(cd);
+        errno = EOVERFLOW;
+        return NULL;
     }
-    return n;
-}
 
-
-static
-char* convertEncoding(char* src, char const* target_encoding)
-{
-    size_t w = currCharCodeSize();
-    char* dst = 0;
-    if (src != 0) {
-        size_t const l = strlenMultiByte(src, w);
-        size_t const n = (l + 1) * 4;
-        dst = calloc(n + 4, 4);
-        if (dst != 0) {
-            char* cur_code = currentCharacterEncoding();
-            iconv_t xiconv = iconv_open(target_encoding, cur_code);
-            if (xiconv != (iconv_t)-1) {
-                char* i_ptr = (char*)src;
-                char* o_ptr = dst;
-                size_t srcln = l * w;
-                size_t avail = n;
-                iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
-                iconv_close(xiconv);
-            }
-        }
+    capacity = input_left * 4 + prefix_size + 32;
+    buffer = (char *) calloc(capacity, 1);
+    if (buffer == NULL) {
+        iconv_close(cd);
+        return NULL;
     }
-    return dst;
-}
 
-static char*
-toLatin1(char* src)
-{
-    return convertEncoding(src, "ISO_8859-1//TRANSLIT");
-}
+    if (prefix_size != 0)
+        memcpy(buffer, prefix, prefix_size);
 
-static char*
-toUtf8(char* src)
-{
-    return convertEncoding(src, "UTF-8//TRANSLIT");
-}
+    input = (char *) src;
+    output = buffer + prefix_size;
+    output_left = capacity - prefix_size - 4;
 
+    while (input_left != 0) {
+        size_t rc = iconv(cd, &input, &input_left, &output, &output_left);
 
-static
-char* toUtf16( char* src )
-{
-    size_t w = currCharCodeSize();
-    char* dst = 0;
-    if (src != 0) {
-        size_t const l = strlenMultiByte(src, w);
-        size_t const n = (l+1)*4;
-        dst = calloc(n+4, 4);
-        if (dst != 0) {
-            char* cur_code = currentCharacterEncoding();
-            iconv_t xiconv = iconv_open("UTF-16LE//TRANSLIT", cur_code);
-            dst[0] = 0xff;
-            dst[1] = 0xfe;
-            if (xiconv != (iconv_t)-1) {
-                char* i_ptr = (char*)src;
-                char* o_ptr = &dst[2];
-                size_t srcln = l*w;
-                size_t avail = n;
-                iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
-                iconv_close(xiconv);
+        if (rc != (size_t) -1)
+            continue;
+
+        if (errno != E2BIG) {
+            free(buffer);
+            iconv_close(cd);
+            return NULL;
+        }
+
+        {
+            size_t used = (size_t) (output - buffer);
+            size_t new_capacity;
+            char *grown;
+
+            if (capacity > SIZE_MAX / 2) {
+                free(buffer);
+                iconv_close(cd);
+                errno = EOVERFLOW;
+                return NULL;
             }
+
+            new_capacity = capacity * 2;
+            grown = (char *) realloc(buffer, new_capacity);
+            if (grown == NULL) {
+                free(buffer);
+                iconv_close(cd);
+                return NULL;
+            }
+
+            buffer = grown;
+            capacity = new_capacity;
+            output = buffer + used;
+            output_left = capacity - used - 4;
         }
     }
-    return dst;
-}
-#endif
 
-static int evaluateArgument(char const* token, char const* arg, char* _EndPtr)
+    /*
+     * Flush any stateful output encoding and leave at least four zero bytes.
+     * The extra zero bytes safely terminate both single-byte and UTF-16 data.
+     */
+    for (;;) {
+        size_t rc = iconv(cd, NULL, NULL, &output, &output_left);
+
+        if (rc != (size_t) -1)
+            break;
+
+        if (errno != E2BIG) {
+            free(buffer);
+            iconv_close(cd);
+            return NULL;
+        }
+
+        {
+            size_t used = (size_t) (output - buffer);
+            size_t new_capacity;
+            char *grown;
+
+            if (capacity > SIZE_MAX / 2) {
+                free(buffer);
+                iconv_close(cd);
+                errno = EOVERFLOW;
+                return NULL;
+            }
+
+            new_capacity = capacity * 2;
+            grown = (char *) realloc(buffer, new_capacity);
+            if (grown == NULL) {
+                free(buffer);
+                iconv_close(cd);
+                return NULL;
+            }
+
+            buffer = grown;
+            capacity = new_capacity;
+            output = buffer + used;
+            output_left = capacity - used - 4;
+        }
+    }
+
+    iconv_close(cd);
+    memset(output, 0, 4);
+    return buffer;
+}
+
+
+static char *
+to_latin1(const char *src)
 {
-    if (arg != 0 && arg != _EndPtr)
+    return convert_encoding(src, "ISO-8859-1//TRANSLIT", NULL, 0);
+}
+
+
+static char *
+to_utf8(const char *src)
+{
+    return convert_encoding(src, "UTF-8//TRANSLIT", NULL, 0);
+}
+
+
+static char *
+to_utf16(const char *src)
+{
+    static const unsigned char bom[] = { 0xff, 0xfe };
+
+    return convert_encoding(src, "UTF-16LE//TRANSLIT", bom, sizeof(bom));
+}
+#endif /* HAVE_ICONV */
+
+static int
+argument_missing(const char *token, const char *arg)
+{
+    if (arg != NULL && arg[0] != '\0')
+        return 0;
+
+    error_printf("WARNING: argument missing for '%s'\n",
+                 token != NULL ? token : "");
+    return 1;
+}
+
+
+static int
+getDoubleValue(const char *token, const char *arg, double *value)
+{
+    char *end = NULL;
+    double parsed;
+
+    if (argument_missing(token, arg))
+        return 0;
+
+    errno = 0;
+    parsed = strtod(arg, &end);
+
+    if (end == arg || end == NULL || *end != '\0' ||
+        errno == ERANGE || !isfinite(parsed)) {
+        error_printf("WARNING: invalid numeric argument '%s' for '%s'\n",
+                     arg, token != NULL ? token : "");
+        return 0;
+    }
+
+    if (value != NULL)
+        *value = parsed;
+
+    return 1;
+}
+
+
+static int
+getIntValue(const char *token, const char *arg, int *value)
+{
+    char *end = NULL;
+    long parsed;
+
+    if (argument_missing(token, arg))
+        return 0;
+
+    errno = 0;
+    parsed = strtol(arg, &end, 10);
+
+    if (end == arg || end == NULL || *end != '\0' ||
+        errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX) {
+        error_printf("WARNING: invalid integer argument '%s' for '%s'\n",
+                     arg, token != NULL ? token : "");
+        return 0;
+    }
+
+    if (value != NULL)
+        *value = (int) parsed;
+
+    return 1;
+}
+
+
+static const char *
+skip_space(const char *text)
+{
+    while (text != NULL && isspace((unsigned char) *text))
+        ++text;
+
+    return text;
+}
+
+
+static int
+parse_int_pair(const char *text, int *first, int *second)
+{
+    const char *cursor;
+    char *end;
+    long a;
+    long b;
+
+    if (text == NULL || first == NULL || second == NULL)
+        return 0;
+
+    cursor = skip_space(text);
+    errno = 0;
+    a = strtol(cursor, &end, 10);
+    if (end == cursor || errno == ERANGE || a < INT_MIN || a > INT_MAX)
+        return 0;
+
+    cursor = skip_space(end);
+    if (*cursor == '\0') {
+        *first = (int) a;
+        *second = (int) a;
         return 1;
-    error_printf("WARNING: argument missing for '%s'\n", token);
+    }
+
+    if (*cursor++ != ',')
+        return 0;
+
+    cursor = skip_space(cursor);
+    errno = 0;
+    b = strtol(cursor, &end, 10);
+    if (end == cursor || errno == ERANGE || b < INT_MIN || b > INT_MAX)
+        return 0;
+
+    cursor = skip_space(end);
+    if (*cursor != '\0')
+        return 0;
+
+    *first = (int) a;
+    *second = (int) b;
+    return 1;
+}
+
+
+static int
+parse_float_pair(const char *text, float *first, float *second)
+{
+    const char *cursor;
+    char *end;
+    float a;
+    float b;
+
+    if (text == NULL || first == NULL || second == NULL)
+        return 0;
+
+    cursor = skip_space(text);
+    errno = 0;
+    a = strtof(cursor, &end);
+    if (end == cursor || errno == ERANGE || !isfinite((double) a))
+        return 0;
+
+    cursor = skip_space(end);
+    if (*cursor == '\0') {
+        *first = a;
+        *second = a;
+        return 1;
+    }
+
+    if (*cursor++ != ',')
+        return 0;
+
+    cursor = skip_space(cursor);
+    errno = 0;
+    b = strtof(cursor, &end);
+    if (end == cursor || errno == ERANGE || !isfinite((double) b))
+        return 0;
+
+    cursor = skip_space(end);
+    if (*cursor != '\0')
+        return 0;
+
+    *first = a;
+    *second = b;
+    return 1;
+}
+
+
+static int
+copy_path(char *dest, size_t capacity, const char *src,
+          const char *program_name, const char *option_name)
+{
+    size_t len;
+
+    if (dest == NULL || capacity == 0 || src == NULL)
+        return -1;
+
+    len = strlen(src);
+    if (len >= capacity) {
+        error_printf("%s: %s argument length (%zu) exceeds limit (%zu)\n",
+                     program_name != NULL ? program_name : "lamer",
+                     option_name != NULL ? option_name : "path",
+                     len, capacity - 1);
+        return -1;
+    }
+
+    memcpy(dest, src, len + 1);
     return 0;
 }
 
-static int getDoubleValue(char const* token, char const* arg, double* ptr)
+
+static char *
+duplicate_string(const char *src)
 {
-    char *_EndPtr=0;
-    double d = strtod(arg, &_EndPtr);
-    if (ptr != 0) {
-        *ptr = d;
-    }
-    return evaluateArgument(token, arg, _EndPtr);
+    size_t len;
+    char *copy;
+
+    if (src == NULL)
+        return NULL;
+
+    len = strlen(src);
+    if (len == SIZE_MAX)
+        return NULL;
+
+    copy = (char *) malloc(len + 1);
+    if (copy != NULL)
+        memcpy(copy, src, len + 1);
+
+    return copy;
 }
 
-static int getIntValue(char const* token, char const* arg, int* ptr)
-{
-    char *_EndPtr=0;
-    long d = strtol(arg, &_EndPtr, 10);
-    if (ptr != 0) {
-        *ptr = d;
-    }
-    return evaluateArgument(token, arg, _EndPtr);
-}
 
 #ifdef ID3TAGS_EXTENDED
 static int
-set_id3v2tag_utf8(lame_global_flags* gfp, int type, char const* str)
+set_id3v2tag_utf8(lame_global_flags *gfp, int type, const char *str)
 {
-    switch (type)
-    {
-        case 'a': return id3tag_set_textinfo_utf8(gfp, "TPE1", str);
-        case 't': return id3tag_set_textinfo_utf8(gfp, "TIT2", str);
-        case 'l': return id3tag_set_textinfo_utf8(gfp, "TALB", str);
-        case 'g': return id3tag_set_textinfo_utf8(gfp, "TCON", str);
-        case 'c': return id3tag_set_comment_utf8(gfp, 0, 0, str);
-        case 'n': return id3tag_set_textinfo_utf8(gfp, "TRCK", str);
-        case 'y': return id3tag_set_textinfo_utf8(gfp, "TYER", str);
-        case 'v': return id3tag_set_fieldvalue_utf8(gfp, str);
+    switch (type) {
+    case 'a': return id3tag_set_textinfo_utf8(gfp, "TPE1", str);
+    case 't': return id3tag_set_textinfo_utf8(gfp, "TIT2", str);
+    case 'l': return id3tag_set_textinfo_utf8(gfp, "TALB", str);
+    case 'g': return id3tag_set_textinfo_utf8(gfp, "TCON", str);
+    case 'c': return id3tag_set_comment_utf8(gfp, NULL, NULL, str);
+    case 'n': return id3tag_set_textinfo_utf8(gfp, "TRCK", str);
+    case 'y': return id3tag_set_textinfo_utf8(gfp, "TYER", str);
+    case 'v': return id3tag_set_fieldvalue_utf8(gfp, str);
+    default:  return -3;
     }
-    return -3;
 }
 
+
 static int
-set_id3v2tag_utf16(lame_global_flags* gfp, int type, unsigned short const* str)
+set_id3v2tag_utf16(lame_global_flags *gfp, int type,
+                    const unsigned short *str)
 {
-    switch (type)
-    {
-        case 'a': return id3tag_set_textinfo_utf16(gfp, "TPE1", str);
-        case 't': return id3tag_set_textinfo_utf16(gfp, "TIT2", str);
-        case 'l': return id3tag_set_textinfo_utf16(gfp, "TALB", str);
-        case 'g': return id3tag_set_textinfo_utf16(gfp, "TCON", str);
-        case 'c': return id3tag_set_comment_utf16(gfp, 0, 0, str);
-        case 'n': return id3tag_set_textinfo_utf16(gfp, "TRCK", str);
-        case 'y': return id3tag_set_textinfo_utf16(gfp, "TYER", str);
-        case 'v': return id3tag_set_fieldvalue_utf16(gfp, str);
+    switch (type) {
+    case 'a': return id3tag_set_textinfo_utf16(gfp, "TPE1", str);
+    case 't': return id3tag_set_textinfo_utf16(gfp, "TIT2", str);
+    case 'l': return id3tag_set_textinfo_utf16(gfp, "TALB", str);
+    case 'g': return id3tag_set_textinfo_utf16(gfp, "TCON", str);
+    case 'c': return id3tag_set_comment_utf16(gfp, NULL, NULL, str);
+    case 'n': return id3tag_set_textinfo_utf16(gfp, "TRCK", str);
+    case 'y': return id3tag_set_textinfo_utf16(gfp, "TYER", str);
+    case 'v': return id3tag_set_fieldvalue_utf16(gfp, str);
+    default:  return -3;
     }
-    return -3;
 }
 #endif
 
-static int
-set_id3tag(lame_global_flags* gfp, int type, char const* str)
-{
-    switch (type)
-    {
-        case 'a': return id3tag_set_artist(gfp, str), 0;
-        case 't': return id3tag_set_title(gfp, str), 0;
-        case 'l': return id3tag_set_album(gfp, str), 0;
-        case 'g': return id3tag_set_genre(gfp, str);
-        case 'c': return id3tag_set_comment(gfp, str), 0;
-        case 'n': return id3tag_set_track(gfp, str);
-        case 'y': return id3tag_set_year(gfp, str), 0;
-        case 'v': return id3tag_set_fieldvalue(gfp, str);
-    }
-    return 0;
-}
 
 static int
-id3_tag(lame_global_flags* gfp, int type, TextEncoding enc, char* str)
+set_id3tag(lame_global_flags *gfp, int type, const char *str)
 {
-    void* x = 0;
+    switch (type) {
+    case 'a':
+        id3tag_set_artist(gfp, str);
+        return 0;
+    case 't':
+        id3tag_set_title(gfp, str);
+        return 0;
+    case 'l':
+        id3tag_set_album(gfp, str);
+        return 0;
+    case 'g':
+        return id3tag_set_genre(gfp, str);
+    case 'c':
+        id3tag_set_comment(gfp, str);
+        return 0;
+    case 'n':
+        return id3tag_set_track(gfp, str);
+    case 'y':
+        id3tag_set_year(gfp, str);
+        return 0;
+    case 'v':
+        return id3tag_set_fieldvalue(gfp, str);
+    default:
+        return -3;
+    }
+}
+
+
+static int
+id3_tag(lame_global_flags *gfp, int type, TextEncoding encoding,
+        const char *str)
+{
+    void *converted = NULL;
     int result;
-    if ((enc == TENC_UTF16 || enc == TENC_UTF8) && type != 'v' ) {
-        id3_tag(gfp, type, TENC_LATIN1, str); /* for id3v1 */
-    }
-    switch (enc) 
-    {
-        default:
+
+    if (gfp == NULL || str == NULL)
+        return -3;
+
+    /*
+     * Keep the historical behavior of populating ID3v1 in addition to
+     * Unicode ID3v2 fields when possible.
+     */
+    if ((encoding == TENC_UTF16 || encoding == TENC_UTF8) && type != 'v')
+        (void) id3_tag(gfp, type, TENC_LATIN1, str);
+
 #ifdef ID3TAGS_EXTENDED
-        case TENC_LATIN1: x = toLatin1(str); break;
-        case TENC_UTF16:  x = toUtf16(str);  break;
-        case TENC_UTF8:   x = toUtf8(str);   break;
-#else
-        case TENC_RAW:    x = strdup(str);   break;
-#endif
+    switch (encoding) {
+    case TENC_RAW:
+        converted = duplicate_string(str);
+        break;
+    case TENC_LATIN1:
+        converted = to_latin1(str);
+        break;
+    case TENC_UTF16:
+        converted = to_utf16(str);
+        break;
+    case TENC_UTF8:
+        converted = to_utf8(str);
+        break;
+    default:
+        return -3;
     }
-    switch (enc)
-    {
-        default:
+#else
+    (void) encoding;
+    converted = duplicate_string(str);
+#endif
+
+    if (converted == NULL) {
+        error_printf("Error: could not convert ID3 tag text\n");
+        return -3;
+    }
+
 #ifdef ID3TAGS_EXTENDED
-        case TENC_LATIN1: result = set_id3tag(gfp, type, x);   break;
-        case TENC_UTF16:  result = set_id3v2tag_utf16(gfp, type, (unsigned short const*) x); break;
-        case TENC_UTF8:   result = set_id3v2tag_utf8(gfp, type, (char const*) x); break;
-#else
-        case TENC_RAW:    result = set_id3tag(gfp, type, x);   break;
-#endif
+    switch (encoding) {
+    case TENC_UTF16:
+        result = set_id3v2tag_utf16(
+            gfp, type, (const unsigned short *) converted);
+        break;
+    case TENC_UTF8:
+        result = set_id3v2tag_utf8(gfp, type, (const char *) converted);
+        break;
+    case TENC_RAW:
+    case TENC_LATIN1:
+        result = set_id3tag(gfp, type, (const char *) converted);
+        break;
+    default:
+        result = -3;
+        break;
     }
-    free(x);
+#else
+    result = set_id3tag(gfp, type, (const char *) converted);
+#endif
+
+    free(converted);
     return result;
 }
-
-
 
 
 /*  note: for presets it would be better to externalize them in a file.
@@ -468,27 +776,31 @@ presets_set(lame_t gfp, int fast, int cbr, const char *preset_name, const char *
         return 0;
     }
 
-    /* Generic ABR Preset */
-    if (((atoi(preset_name)) > 0) && (fast < 1)) {
-        if ((atoi(preset_name)) >= 8 && (atoi(preset_name)) <= 320) {
-            lame_set_preset(gfp, atoi(preset_name));
+    /* Generic ABR preset. */
+    if (fast < 1) {
+        int bitrate = 0;
 
-            if (cbr == 1)
-                lame_set_VBR(gfp, vbr_off);
+        if (getIntValue("preset", preset_name, &bitrate)) {
+            if (bitrate >= 8 && bitrate <= 320) {
+                lame_set_preset(gfp, bitrate);
 
-            if (mono == 1) {
-                lame_set_mode(gfp, MONO);
+                if (cbr == 1)
+                    lame_set_VBR(gfp, vbr_off);
+
+                if (mono == 1)
+                    lame_set_mode(gfp, MONO);
+
+                return 0;
             }
 
-            return 0;
-
-        }
-        else {
             frontend_version_print(Console_IO.Error_fp);
-            error_printf("Error: The bitrate specified is out of the valid range for this preset\n"
-                         "\n"
-                         "When using this mode you must enter a value between \"32\" and \"320\"\n"
-                         "\n" "For further information try: \"%s --preset help\"\n", ProgramName);
+            error_printf(
+                "Error: The bitrate specified is out of the valid range for this preset\n"
+                "\n"
+                "When using this mode you must enter a value between \"8\" and \"320\"\n"
+                "\n"
+                "For further information try: \"%s --preset help\"\n",
+                ProgramName);
             return -1;
         }
     }
@@ -541,78 +853,146 @@ genre_list_handler(int num, const char *name, void *cookie)
 *
 ************************************************************************/
 
-/* would use real "strcasecmp" but it isn't portable */
-static int
-local_strcasecmp(const char *s1, const char *s2)
+/*
+ * Command-line option names are ASCII.  Keep comparisons independent of the
+ * process locale instead of routing option parsing through locale-sensitive
+ * tolower().
+ */
+static unsigned char
+ascii_lower(unsigned char ch)
 {
-    unsigned char c1;
-    unsigned char c2;
+    if (ch >= (unsigned char) 'A' && ch <= (unsigned char) 'Z')
+        return (unsigned char) (ch + ('a' - 'A'));
 
-    do {
-        c1 = (unsigned char) tolower(*s1);
-        c2 = (unsigned char) tolower(*s2);
-        if (!c1) {
-            break;
-        }
-        ++s1;
-        ++s2;
-    } while (c1 == c2);
-    return c1 - c2;
-}
-
-static int
-local_strncasecmp(const char *s1, const char *s2, int n)
-{
-    unsigned char c1 = 0;
-    unsigned char c2 = 0;
-    int     cnt = 0;
-
-    do {
-        if (cnt == n) {
-            break;
-        }
-        c1 = (unsigned char) tolower(*s1);
-        c2 = (unsigned char) tolower(*s2);
-        if (!c1) {
-            break;
-        }
-        ++s1;
-        ++s2;
-        ++cnt;
-    } while (c1 == c2);
-    return c1 - c2;
+    return ch;
 }
 
 
-
-/* LAME is a simple frontend which just uses the file extension */
-/* to determine the file type.  Trying to analyze the file */
-/* contents is well beyond the scope of LAME and should not be added. */
 static int
-filename_to_type(const char *FileName)
+local_strcasecmp(const char *lhs, const char *rhs)
 {
-    size_t  len = strlen(FileName);
+    unsigned char a;
+    unsigned char b;
 
-    if (len < 4)
+    if (lhs == rhs)
+        return 0;
+    if (lhs == NULL)
+        return -1;
+    if (rhs == NULL)
+        return 1;
+
+    do {
+        a = ascii_lower((unsigned char) *lhs++);
+        b = ascii_lower((unsigned char) *rhs++);
+
+        if (a != b)
+            return (int) a - (int) b;
+    } while (a != '\0');
+
+    return 0;
+}
+
+
+static int
+local_strncasecmp(const char *lhs, const char *rhs, size_t count)
+{
+    size_t i;
+
+    if (count == 0 || lhs == rhs)
+        return 0;
+    if (lhs == NULL)
+        return -1;
+    if (rhs == NULL)
+        return 1;
+
+    for (i = 0; i < count; ++i) {
+        unsigned char a = ascii_lower((unsigned char) lhs[i]);
+        unsigned char b = ascii_lower((unsigned char) rhs[i]);
+
+        if (a != b)
+            return (int) a - (int) b;
+        if (a == '\0')
+            return 0;
+    }
+
+    return 0;
+}
+
+
+/*
+ * Preserve the frontend's extension-based input-type detection.  Content
+ * probing belongs in the input layer, not in command-line parsing.
+ */
+static int
+filename_to_type(const char *file_name)
+{
+    const char *ext;
+
+    if (file_name == NULL)
         return sf_unknown;
 
-    FileName += len - 4;
-    if (0 == local_strcasecmp(FileName, ".mpg"))
+    ext = strrchr(file_name, '.');
+    if (ext == NULL)
+        return sf_unknown;
+
+    if (local_strcasecmp(ext, ".mpg") == 0 ||
+        local_strcasecmp(ext, ".mp1") == 0 ||
+        local_strcasecmp(ext, ".mp2") == 0 ||
+        local_strcasecmp(ext, ".mp3") == 0)
         return sf_mp123;
-    if (0 == local_strcasecmp(FileName, ".mp1"))
-        return sf_mp123;
-    if (0 == local_strcasecmp(FileName, ".mp2"))
-        return sf_mp123;
-    if (0 == local_strcasecmp(FileName, ".mp3"))
-        return sf_mp123;
-    if (0 == local_strcasecmp(FileName, ".wav"))
+
+    if (local_strcasecmp(ext, ".wav") == 0)
         return sf_wave;
-    if (0 == local_strcasecmp(FileName, ".aif"))
+
+    if (local_strcasecmp(ext, ".aif") == 0 ||
+        local_strcasecmp(ext, ".aiff") == 0)
         return sf_aiff;
-    if (0 == local_strcasecmp(FileName, ".raw"))
+
+    if (local_strcasecmp(ext, ".raw") == 0)
         return sf_raw;
+
     return sf_unknown;
 }
+
+static int
+frequency_to_hz(double value, double khz_threshold,
+                int threshold_is_inclusive, int *hz)
+{
+    int value_is_khz;
+    double scaled;
+
+    if (hz == NULL || value < 0.0)
+        return 0;
+
+    value_is_khz = value < khz_threshold ||
+                   (threshold_is_inclusive && value == khz_threshold);
+    scaled = value * (value_is_khz ? 1000.0 : 1.0);
+    if (!isfinite(scaled) || scaled > (double) INT_MAX - 0.5)
+        return 0;
+
+    *hz = (int) (scaled + 0.5);
+    return 1;
+}
+
+
+static int
+encode_ns_tuning(double value)
+{
+    int encoded;
+
+    if (value <= -8.0)
+        encoded = -32;
+    else if (value >= 7.75)
+        encoded = 31;
+    else
+        encoded = (int) (value * 4.0);
+
+    if (encoded < 0)
+        encoded += 64;
+
+    return encoded;
+}
+
 
 static int
 resample_rate(double freq)
@@ -646,55 +1026,67 @@ resample_rate(double freq)
 }
 
 static int
-set_id3_albumart(lame_t gfp, char const* file_name)
+set_id3_albumart(lame_t gfp, const char *file_name)
 {
-    int ret = -1;
-    FILE *fpi = 0;
+    FILE *fp;
+    char *albumart = NULL;
+    long end_pos;
+    size_t size;
+    int ret = 0;
 
-    if (file_name == 0) {
+    if (file_name == NULL || file_name[0] == '\0')
         return 0;
-    }
-    fpi = lame_fopen(file_name, "rb");
-    if (!fpi) {
-        ret = 1;
-    }
-    else {
-        size_t size;
-        char *albumart = 0;
 
-        fseek(fpi, 0, SEEK_END);
-        size = ftell(fpi);
-        fseek(fpi, 0, SEEK_SET);
-        albumart = (char *)malloc(size);
-        if (!albumart) {
-            ret = 2;            
-        }
-        else {
-            if (fread(albumart, 1, size, fpi) != size) {
-                ret = 3;
-            }
-            else {
-                ret = id3tag_set_albumart(gfp, albumart, size) ? 4 : 0;
-            }
-            free(albumart);
-        }
-        fclose(fpi);
+    fp = lame_fopen(file_name, "rb");
+    if (fp == NULL) {
+        error_printf("Could not find: '%s'.\n", file_name);
+        return 1;
     }
-    switch (ret) {
-    case 1: error_printf("Could not find: '%s'.\n", file_name); break;
-    case 2: error_printf("Insufficient memory for reading the albumart.\n"); break;
-    case 3: error_printf("Read error: '%s'.\n", file_name); break;
-    case 4: error_printf("Unsupported image: '%s'.\nSpecify JPEG/PNG/GIF image\n", file_name); break;
-    default: break;
+
+    if (fseek(fp, 0, SEEK_END) != 0 ||
+        (end_pos = ftell(fp)) < 0 ||
+        fseek(fp, 0, SEEK_SET) != 0) {
+        error_printf("Could not determine image size: '%s'.\n", file_name);
+        fclose(fp);
+        return 3;
     }
+
+    size = (size_t) end_pos;
+    if ((long) size != end_pos) {
+        error_printf("Album art is too large to read: '%s'.\n", file_name);
+        fclose(fp);
+        return 2;
+    }
+
+    albumart = (char *) malloc(size != 0 ? size : 1);
+    if (albumart == NULL) {
+        error_printf("Insufficient memory for reading the albumart.\n");
+        fclose(fp);
+        return 2;
+    }
+
+    if (size != 0 && fread(albumart, 1, size, fp) != size) {
+        error_printf("Read error: '%s'.\n", file_name);
+        ret = 3;
+    }
+    else if (id3tag_set_albumart(gfp, albumart, size) != 0) {
+        error_printf(
+            "Unsupported image: '%s'.\n"
+            "Specify JPEG/PNG/GIF image\n",
+            file_name);
+        ret = 4;
+    }
+
+    free(albumart);
+    fclose(fp);
     return ret;
 }
 
 
-enum ID3TAG_MODE 
-{ ID3TAG_MODE_DEFAULT
-, ID3TAG_MODE_V1_ONLY
-, ID3TAG_MODE_V2_ONLY
+enum id3tag_mode {
+    ID3TAG_MODE_DEFAULT,
+    ID3TAG_MODE_V1_ONLY,
+    ID3TAG_MODE_V2_ONLY
 };
 
 static int dev_only_with_arg(char const* str, char const* token, char const* nextArg, int* argIgnored, int* argUsed)
@@ -716,44 +1108,36 @@ static int dev_only_without_arg(char const* str, char const* token, int* argIgno
     return 0;
 }
 
-/* Ugly, NOT final version */
-
-#define T_IF(str)          if ( 0 == local_strcasecmp (token,str) ) {
-#define T_ELIF(str)        } else if ( 0 == local_strcasecmp (token,str) ) {
-#define T_ELIF2(str1,str2) } else if ( 0 == local_strcasecmp (token,str1)  ||  0 == local_strcasecmp (token,str2) ) {
-#define T_ELSE             } else {
-#define T_END              }
-
-#define T_ELIF_INTERNAL(str) \
-                           } else if (dev_only_without_arg(str,token,&argIgnored)) {
-
-#define T_ELIF_INTERNAL_WITH_ARG(str) \
-                           } else if (dev_only_with_arg(str,token,nextArg,&argIgnored,&argUsed)) {
-
+/* Long options are parsed explicitly below. */
 
 static int
-parse_args_(lame_global_flags * gfp, int argc, char **argv,
-           char *const inPath, char *const outPath, char **nogap_inPath, int *num_nogap)
+parse_args_(lame_global_flags *gfp, int argc, char **argv,
+            char *inPath, char *outPath, char **nogap_inPath, int *num_nogap)
 {
-    char    outDir[PATH_MAX+1] = "";
-    int     input_file = 0;  /* set to 1 if we parse an input file name  */
-    int     i;
-    int     autoconvert = 0;
-    int     nogap = 0;
-    int     nogap_tags = 0;  /* set to 1 to use VBR tags in NOGAP mode */
-    const char *ProgramName = argv[0];
+    char outDir[PATH_MAX + 1] = "";
+    int input_file = 0;  /* set to 1 if we parse an input file name */
+    int i;
+    int autoconvert = 0;
+    int nogap = 0;
+    int nogap_tags = 0;  /* set to 1 to use VBR tags in NOGAP mode */
+    const char *ProgramName =
+        (argc > 0 && argv != NULL && argv[0] != NULL) ? argv[0] : "lamer";
     int     count_nogap = 0;
     int     noreplaygain = 0; /* is RG explicitly disabled by the user */
     int     id3tag_mode = ID3TAG_MODE_DEFAULT;
     int     ignore_tag_errors = 0;  /* Ignore errors in values passed for tags */
+
+    if (gfp == NULL || argv == NULL || inPath == NULL || outPath == NULL)
+        return -1;
+
 #ifdef ID3TAGS_EXTENDED
     enum TextEncoding id3_tenc = TENC_UTF16;
 #else
     enum TextEncoding id3_tenc = TENC_LATIN1;
 #endif
 
-#ifdef HAVE_LANGINFO_H
-    setlocale(LC_CTYPE, "");
+#if defined(HAVE_ICONV) && defined(HAVE_LANGINFO_H)
+    (void) setlocale(LC_CTYPE, "");
 #endif
     inPath[0] = '\0';
     outPath[0] = '\0';
@@ -778,40 +1162,51 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
             argUsed = 0;
             if (!*token) { /* The user wants to use stdin and/or stdout. */
                 input_file = 1;
-                if (inPath[0] == '\0')
-                    strncpy(inPath, argv[i], PATH_MAX + 1);
-                else if (outPath[0] == '\0')
-                    strncpy(outPath, argv[i], PATH_MAX + 1);
+                if (inPath[0] == '\0') {
+                    if (copy_path(inPath, PATH_MAX + 1, argv[i],
+                                  ProgramName, "input") != 0)
+                        return -1;
+                }
+                else if (outPath[0] == '\0') {
+                    if (copy_path(outPath, PATH_MAX + 1, argv[i],
+                                  ProgramName, "output") != 0)
+                        return -1;
+                }
             }
             if (*token == '-') { /* GNU style */
                 double  double_value = 0;
                 int     int_value = 0;
                 token++;
 
-                T_IF("resample")
+                if (local_strcasecmp(token, "resample") == 0) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed) 
-                        (void) lame_set_out_samplerate(gfp, resample_rate(double_value));
+                    if (argUsed) {
+                        int rate = resample_rate(double_value);
 
-                T_ELIF("vbr-old")
+                        if (rate == 0)
+                            return -1;
+
+                        (void) lame_set_out_samplerate(gfp, rate);
+                    }
+
+                } else if (local_strcasecmp(token, "vbr-old") == 0) {
                     lame_set_VBR(gfp, vbr_rh);
 
-                T_ELIF("vbr-new")
+                } else if (local_strcasecmp(token, "vbr-new") == 0) {
                     lame_set_VBR(gfp, vbr_mtrh);
 
-                T_ELIF("vbr-mtrh")
+                } else if (local_strcasecmp(token, "vbr-mtrh") == 0) {
                     lame_set_VBR(gfp, vbr_mtrh);
 
-                T_ELIF("cbr")
+                } else if (local_strcasecmp(token, "cbr") == 0) {
                     lame_set_VBR(gfp, vbr_off);
 
-                T_ELIF("abr")
+                } else if (local_strcasecmp(token, "abr") == 0) {
                     /* values larger than 8000 are bps (like Fraunhofer), so it's strange to get 320000 bps MP3 when specifying 8000 bps MP3 */
                     argUsed = getIntValue(token, nextArg, &int_value);
                     if (argUsed) {
-                        if (int_value >= 8000) {
-                            int_value = (int_value + 500) / 1000;
-                        }
+                        if (int_value >= 8000)
+                            int_value = (int) (((long long) int_value + 500) / 1000);
                         if (int_value > 320) {
                             int_value = 320;
                         }
@@ -822,61 +1217,61 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         lame_set_VBR_mean_bitrate_kbps(gfp, int_value);
                     }
 
-                T_ELIF("r3mix")
+                } else if (local_strcasecmp(token, "r3mix") == 0) {
                     lame_set_preset(gfp, R3MIX);
 
-                T_ELIF("bitwidth")
+                } else if (local_strcasecmp(token, "bitwidth") == 0) {
                     argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed) 
+                    if (argUsed)
                         global_raw_pcm.in_bitwidth = int_value;
-                
-                T_ELIF("signed")
+
+                } else if (local_strcasecmp(token, "signed") == 0) {
                     global_raw_pcm.in_signed = 1;
 
-                T_ELIF("unsigned")
+                } else if (local_strcasecmp(token, "unsigned") == 0) {
                     global_raw_pcm.in_signed = 0;
 
-                T_ELIF("little-endian")
+                } else if (local_strcasecmp(token, "little-endian") == 0) {
                     global_raw_pcm.in_endian = ByteOrderLittleEndian;
 
-                T_ELIF("big-endian")
+                } else if (local_strcasecmp(token, "big-endian") == 0) {
                     global_raw_pcm.in_endian = ByteOrderBigEndian;
 
-                T_ELIF("mp1input")
+                } else if (local_strcasecmp(token, "mp1input") == 0) {
                     global_reader.input_format = sf_mp1;
 
-                T_ELIF("mp2input")
+                } else if (local_strcasecmp(token, "mp2input") == 0) {
                     global_reader.input_format = sf_mp2;
 
-                T_ELIF("mp3input")
+                } else if (local_strcasecmp(token, "mp3input") == 0) {
                     global_reader.input_format = sf_mp3;
 
-                T_ELIF("decode")
+                } else if (local_strcasecmp(token, "decode") == 0) {
                     (void) lame_set_decode_only(gfp, 1);
 
-                T_ELIF("analysis")
+                } else if (local_strcasecmp(token, "analysis") == 0) {
                     (void) lame_set_analysis(gfp, 1);
 
-                T_ELIF("experimental-short-transient-redistribute")
+                } else if (local_strcasecmp(token, "experimental-short-transient-redistribute") == 0) {
                     (void) lame_set_experimental_short_transient_redistribute(gfp, 1);
 
-                T_ELIF("flush")
+                } else if (local_strcasecmp(token, "flush") == 0) {
                     global_writer.flush_write = 1;
 
-                T_ELIF("decode-mp3delay")
+                } else if (local_strcasecmp(token, "decode-mp3delay") == 0) {
                     argUsed = getIntValue(token, nextArg, &int_value);
                     if (argUsed) {
                         global_decoder.mp3_delay = int_value;
                         global_decoder.mp3_delay_set = 1;
                     }
 
-                T_ELIF("nores")
+                } else if (local_strcasecmp(token, "nores") == 0) {
                     lame_set_disable_reservoir(gfp, 1);
 
-                T_ELIF("strictly-enforce-ISO")
+                } else if (local_strcasecmp(token, "strictly-enforce-ISO") == 0) {
                     lame_set_strict_ISO(gfp, MDB_STRICT_ISO);
 
-                T_ELIF("buffer-constraint")
+                } else if (local_strcasecmp(token, "buffer-constraint") == 0) {
                   argUsed = 1;
                 if (strcmp(nextArg, "default") == 0)
                   (void) lame_set_strict_ISO(gfp, MDB_DEFAULT);
@@ -889,22 +1284,22 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     return -1;
                 }
 
-                T_ELIF("scale")
+                } else if (local_strcasecmp(token, "scale") == 0) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed)
                         (void) lame_set_scale(gfp, (float) double_value);
 
-                T_ELIF("scale-l")
+                } else if (local_strcasecmp(token, "scale-l") == 0) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed)
                         (void) lame_set_scale_left(gfp, (float) double_value);
 
-                T_ELIF("scale-r")
+                } else if (local_strcasecmp(token, "scale-r") == 0) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed)
                         (void) lame_set_scale_right(gfp, (float) double_value);
 
-                T_ELIF("gain")
+                } else if (local_strcasecmp(token, "gain") == 0) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed) {
                         double gain = double_value;
@@ -914,77 +1309,86 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         (void) lame_set_scale(gfp, (float) gain);
                     }
 
-                T_ELIF("noasm")
-                    argUsed = 1;
-                if (!strcmp(nextArg, "mmx"))
-                    (void) lame_set_asm_optimizations(gfp, MMX, 0);
-                if (!strcmp(nextArg, "3dnow"))
-                    (void) lame_set_asm_optimizations(gfp, AMD_3DNOW, 0);
-                if (!strcmp(nextArg, "sse"))
-                    (void) lame_set_asm_optimizations(gfp, SSE, 0);
+                } else if (local_strcasecmp(token, "noasm") == 0) {
+                    if (argument_missing(token, nextArg))
+                        return -1;
 
-                T_ELIF("freeformat")
+                    argUsed = 1;
+                    if (local_strcasecmp(nextArg, "mmx") == 0)
+                        (void) lame_set_asm_optimizations(gfp, MMX, 0);
+                    else if (local_strcasecmp(nextArg, "3dnow") == 0)
+                        (void) lame_set_asm_optimizations(gfp, AMD_3DNOW, 0);
+                    else if (local_strcasecmp(nextArg, "sse") == 0)
+                        (void) lame_set_asm_optimizations(gfp, SSE, 0);
+                    else {
+                        error_printf("%s: unknown --noasm target '%s'\n",
+                                     ProgramName, nextArg);
+                        return -1;
+                    }
+
+                } else if (local_strcasecmp(token, "freeformat") == 0) {
                     lame_set_free_format(gfp, 1);
 
-                T_ELIF("replaygain-fast")
+                } else if (local_strcasecmp(token, "replaygain-fast") == 0) {
                     lame_set_findReplayGain(gfp, 1);
 
 #ifdef DECODE_ON_THE_FLY
-                T_ELIF("replaygain-accurate")
+                } else if (local_strcasecmp(token, "replaygain-accurate") == 0) {
                     lame_set_decode_on_the_fly(gfp, 1);
                 lame_set_findReplayGain(gfp, 1);
 #endif
 
-                T_ELIF("noreplaygain")
+                } else if (local_strcasecmp(token, "noreplaygain") == 0) {
                     noreplaygain = 1;
                 lame_set_findReplayGain(gfp, 0);
 
 
 #ifdef DECODE_ON_THE_FLY
-                T_ELIF("clipdetect")
+                } else if (local_strcasecmp(token, "clipdetect") == 0) {
                     global_ui_config.print_clipping_info = 1;
                     lame_set_decode_on_the_fly(gfp, 1);
 #endif
 
-                T_ELIF("nohist")
+                } else if (local_strcasecmp(token, "nohist") == 0) {
                     global_ui_config.brhist = 0;
 
                 /* options for ID3 tag */
 #ifdef ID3TAGS_EXTENDED
-                T_ELIF2("id3v2-utf16","id3v2-ucs2") /* id3v2-ucs2 for compatibility only */
+                } else if (local_strcasecmp(token, "id3v2-utf16") == 0 ||
+                           local_strcasecmp(token, "id3v2-ucs2") == 0) { /* id3v2-ucs2 for compatibility only */
                     id3_tenc = TENC_UTF16;
                     id3tag_add_v2(gfp);
 
-                T_ELIF("id3v2-utf8")
+                } else if (local_strcasecmp(token, "id3v2-utf8") == 0) {
                     id3_tenc = TENC_UTF8;
                     id3tag_add_v2_4_UTF8(gfp);
 
-                T_ELIF("id3v2-latin1")
+                } else if (local_strcasecmp(token, "id3v2-latin1") == 0) {
                     id3_tenc = TENC_LATIN1;
                     id3tag_add_v2(gfp);
 #endif
 
-                T_ELIF("tt")
+                } else if (local_strcasecmp(token, "tt") == 0) {
                     argUsed = 1;
                     id3_tag(gfp, 't', id3_tenc, nextArg);
 
-                T_ELIF("ta")
+                } else if (local_strcasecmp(token, "ta") == 0) {
                     argUsed = 1;
                     id3_tag(gfp, 'a', id3_tenc, nextArg);
 
-                T_ELIF("tl")
+                } else if (local_strcasecmp(token, "tl") == 0) {
                     argUsed = 1;
                     id3_tag(gfp, 'l', id3_tenc, nextArg);
 
-                T_ELIF("ty")
+                } else if (local_strcasecmp(token, "ty") == 0) {
                     argUsed = 1;
                     id3_tag(gfp, 'y', id3_tenc, nextArg);
 
-                T_ELIF("tc")
+                } else if (local_strcasecmp(token, "tc") == 0) {
                     argUsed = 1;
                     id3_tag(gfp, 'c', id3_tenc, nextArg);
 
-                T_ELIF("tn")
+                } else if (local_strcasecmp(token, "tn") == 0) {
                     int ret = id3_tag(gfp, 'n', id3_tenc, nextArg);
                     argUsed = 1;
                     if (ret != 0) {
@@ -1006,7 +1410,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         }
                     }
 
-                T_ELIF("tg")
+                } else if (local_strcasecmp(token, "tg") == 0) {
                     int ret = 0;
                     argUsed = 1;
                     if (nextArg != 0 && strlen(nextArg) > 0) {
@@ -1040,7 +1444,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         }
                     }
 
-                T_ELIF("tv")
+                } else if (local_strcasecmp(token, "tv") == 0) {
                     argUsed = 1;
                     if (id3_tag(gfp, 'v', id3_tenc, nextArg)) {
                         if (global_ui_config.silent < 9) {
@@ -1048,7 +1452,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         }
                     }
 
-                T_ELIF("ti")
+                } else if (local_strcasecmp(token, "ti") == 0) {
                     argUsed = 1;
                     if (set_id3_albumart(gfp, nextArg) != 0) {
                         if (! ignore_tag_errors) {
@@ -1056,27 +1460,27 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         }
                     }
 
-                T_ELIF("ignore-tag-errors")
+                } else if (local_strcasecmp(token, "ignore-tag-errors") == 0) {
                     ignore_tag_errors = 1;
 
-                T_ELIF("add-id3v2")
+                } else if (local_strcasecmp(token, "add-id3v2") == 0) {
                     id3tag_add_v2(gfp);
 
-                T_ELIF("id3v1-only")
+                } else if (local_strcasecmp(token, "id3v1-only") == 0) {
                     id3tag_v1_only(gfp);
                     id3tag_mode = ID3TAG_MODE_V1_ONLY;
 
-                T_ELIF("id3v2-only")
+                } else if (local_strcasecmp(token, "id3v2-only") == 0) {
                     id3tag_v2_only(gfp);
                     id3tag_mode = ID3TAG_MODE_V2_ONLY;
 
-                T_ELIF("space-id3v1")
+                } else if (local_strcasecmp(token, "space-id3v1") == 0) {
                     id3tag_space_v1(gfp);
 
-                T_ELIF("pad-id3v2")
+                } else if (local_strcasecmp(token, "pad-id3v2") == 0) {
                     id3tag_pad_v2(gfp);
 
-                T_ELIF("pad-id3v2-size")
+                } else if (local_strcasecmp(token, "pad-id3v2-size") == 0) {
                     argUsed = getIntValue(token, nextArg, &int_value);
                     if (argUsed) {
                         int_value = int_value <= 128000 ? int_value : 128000;
@@ -1084,12 +1488,12 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         id3tag_set_pad(gfp, int_value);
                     }
 
-                T_ELIF("genre-list")
+                } else if (local_strcasecmp(token, "genre-list") == 0) {
                     id3tag_genre_list(genre_list_handler, NULL);
                     return -2;
 
 
-                T_ELIF("lowpass")
+                } else if (local_strcasecmp(token, "lowpass") == 0) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed) {
                         if (double_value < 0) {
@@ -1101,11 +1505,15 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                                 error_printf("Must specify lowpass with --lowpass freq, freq >= 0.001 kHz\n");
                                 return -1;
                             }
-                            lame_set_lowpassfreq(gfp, (int) (double_value * (double_value < 50. ? 1.e3 : 1.e0) + 0.5));
+                            int hz;
+
+                            if (!frequency_to_hz(double_value, 50.0, 0, &hz))
+                                return -1;
+                            lame_set_lowpassfreq(gfp, hz);
                         }
                     }
-                
-                T_ELIF("lowpass-width")
+
+                } else if (local_strcasecmp(token, "lowpass-width") == 0) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed) {
                         /* useful are 0.001 kHz...16 kHz, 16 Hz...50000 Hz */
@@ -1114,10 +1522,16 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                                 ("Must specify lowpass width with --lowpass-width freq, freq >= 0.001 kHz\n");
                             return -1;
                         }
-                        lame_set_lowpasswidth(gfp, (int) (double_value * (double_value < 16. ? 1.e3 : 1.e0) + 0.5));
+                        {
+                            int hz;
+
+                            if (!frequency_to_hz(double_value, 16.0, 0, &hz))
+                                return -1;
+                            lame_set_lowpasswidth(gfp, hz);
+                        }
                     }
 
-                T_ELIF("highpass")
+                } else if (local_strcasecmp(token, "highpass") == 0) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed) {
                         if (double_value < 0.0) {
@@ -1129,11 +1543,15 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                                 error_printf("Must specify highpass with --highpass freq, freq >= 0.001 kHz\n");
                                 return -1;
                             }
-                            lame_set_highpassfreq(gfp, (int) (double_value * (double_value < 16. ? 1.e3 : 1.e0) + 0.5));
+                            int hz;
+
+                            if (!frequency_to_hz(double_value, 16.0, 0, &hz))
+                                return -1;
+                            lame_set_highpassfreq(gfp, hz);
                         }
                     }
-                    
-                T_ELIF("highpass-width")
+
+                } else if (local_strcasecmp(token, "highpass-width") == 0) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed) {
                         /* useful are 0.001 kHz...16 kHz, 16 Hz...50000 Hz */
@@ -1142,10 +1560,16 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                                 ("Must specify highpass width with --highpass-width freq, freq >= 0.001 kHz\n");
                             return -1;
                         }
-                        lame_set_highpasswidth(gfp, (int) double_value);
+                        {
+                            int hz;
+
+                            if (!frequency_to_hz(double_value, 16.0, 0, &hz))
+                                return -1;
+                            lame_set_highpasswidth(gfp, hz);
+                        }
                     }
 
-                T_ELIF("comp")
+                } else if (local_strcasecmp(token, "comp") == 0) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed) {
                         if (double_value < 1.0) {
@@ -1156,7 +1580,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                             lame_set_compression_ratio(gfp, (float) double_value);
                         }
                     }
-    
+
                 /* some more GNU-ish options could be added
                  * brief         => few messages on screen (name, status report)
                  * o/output file => specifies output filename
@@ -1164,23 +1588,25 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                  * i/input file  => specifies input filename
                  * I             => stdin
                  */
-                T_ELIF("quiet")
+                } else if (local_strcasecmp(token, "quiet") == 0) {
                     global_ui_config.silent = 10; /* on a scale from 1 to 10 be very silent */
 
-                T_ELIF("silent")
+                } else if (local_strcasecmp(token, "silent") == 0) {
                     global_ui_config.silent = 9;
 
-                T_ELIF("brief")
+                } else if (local_strcasecmp(token, "brief") == 0) {
                     global_ui_config.silent = -5; /* print few info on screen */
 
-                T_ELIF("verbose")
+                } else if (local_strcasecmp(token, "verbose") == 0) {
                     global_ui_config.silent = -10; /* print a lot on screen */
-                
-                T_ELIF2("version", "license")
+
+                } else if (local_strcasecmp(token, "version") == 0 ||
+                           local_strcasecmp(token, "license") == 0) {
                     frontend_print_license(stdout);
                 return -2;
 
-                T_ELIF2("help", "usage")
+                } else if (local_strcasecmp(token, "help") == 0 ||
+                           local_strcasecmp(token, "usage") == 0) {
                     if (0 == local_strncasecmp(nextArg, "id3", 3)) {
                         frontend_help_id3tag(stdout);
                     }
@@ -1192,11 +1618,11 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     }
                 return -2;
 
-                T_ELIF("longhelp")
+                } else if (local_strcasecmp(token, "longhelp") == 0) {
                     long_help(gfp, stdout, ProgramName, 0 /* lessmode=NO */ );
                 return -2;
 
-                T_ELIF("?")
+                } else if (local_strcasecmp(token, "?") == 0) {
 #ifdef __unix__
                     FILE   *fp = popen("less -Mqc", "w");
                     long_help(gfp, fp, ProgramName, 0 /* lessmode=NO */ );
@@ -1206,7 +1632,8 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 #endif
                 return -2;
 
-                T_ELIF2("preset", "alt-preset")
+                } else if (local_strcasecmp(token, "preset") == 0 ||
+                           local_strcasecmp(token, "alt-preset") == 0) {
                     argUsed = 1;
                 {
                     int     fast = 0, cbr = 0;
@@ -1226,219 +1653,199 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         return -1;
                 }
 
-                T_ELIF("disptime")
+                } else if (local_strcasecmp(token, "disptime") == 0) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed)
                         global_ui_config.update_interval = (float) double_value;
 
-                T_ELIF("nogaptags")
+                } else if (local_strcasecmp(token, "nogaptags") == 0) {
                     nogap_tags = 1;
 
-                T_ELIF("nogapout")
-                    int const arg_n = strnlen(nextArg, PATH_MAX);
-                    if (arg_n >= PATH_MAX) {
-                        error_printf("%s: %s argument length (%d) exceeds limit (%d)\n", ProgramName, token, arg_n, PATH_MAX);
+                } else if (local_strcasecmp(token, "nogapout") == 0) {
+                    if (argument_missing(token, nextArg) ||
+                        copy_path(outPath, PATH_MAX + 1, nextArg,
+                                  ProgramName, token) != 0)
                         return -1;
-                    }
-                    strncpy(outPath, nextArg, PATH_MAX);
-                    outPath[PATH_MAX] = '\0';
                     argUsed = 1;
 
-                T_ELIF("out-dir")
-                    int const arg_n = strnlen(nextArg, PATH_MAX);
-                    if (arg_n >= PATH_MAX) {
-                        error_printf("%s: %s argument length (%d) exceeds limit (%d)\n", ProgramName, token, arg_n, PATH_MAX);
+                } else if (local_strcasecmp(token, "out-dir") == 0) {
+                    if (argument_missing(token, nextArg) ||
+                        copy_path(outDir, sizeof(outDir), nextArg,
+                                  ProgramName, token) != 0)
                         return -1;
-                    }
-                    strncpy(outDir, nextArg, PATH_MAX);
-                    outDir[PATH_MAX] = '\0';
                     argUsed = 1;
 
-                T_ELIF("nogap")
+                } else if (local_strcasecmp(token, "nogap") == 0) {
                     nogap = 1;
 
-                T_ELIF("swap-channel")
+                } else if (local_strcasecmp(token, "swap-channel") == 0) {
                     global_reader.swap_channel = 1;
 
-                T_ELIF("ignorelength")
+                } else if (local_strcasecmp(token, "ignorelength") == 0) {
                     global_reader.ignorewavlength = 1;
 
-                T_ELIF ("athaa-sensitivity")
+                } else if (local_strcasecmp(token, "athaa-sensitivity") == 0) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed)
                         lame_set_athaa_sensitivity(gfp, (float) double_value);
 
                 /* ---------------- internal tuning switches ---------------- */
 
-                T_ELIF_INTERNAL("noshort")
+                } else if (dev_only_without_arg("noshort", token, &argIgnored)) {
                     (void) lame_set_no_short_blocks(gfp, 1);
 
-                T_ELIF_INTERNAL("short")
+                } else if (dev_only_without_arg("short", token, &argIgnored)) {
                     (void) lame_set_no_short_blocks(gfp, 0);
 
-                T_ELIF_INTERNAL("allshort")
+                } else if (dev_only_without_arg("allshort", token, &argIgnored)) {
                     (void) lame_set_force_short_blocks(gfp, 1);
 
-                T_ELIF_INTERNAL("notemp")
+                } else if (dev_only_without_arg("notemp", token, &argIgnored)) {
                     (void) lame_set_useTemporal(gfp, 0);
 
-                T_ELIF_INTERNAL_WITH_ARG("interch")
+                } else if (dev_only_with_arg("interch", token, nextArg, &argIgnored, &argUsed)) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed)
                         (void) lame_set_interChRatio(gfp, (float) double_value);
 
-                T_ELIF_INTERNAL_WITH_ARG("temporal-masking")
+                } else if (dev_only_with_arg("temporal-masking", token, nextArg, &argIgnored, &argUsed)) {
                     argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed) 
+                    if (argUsed)
                         (void) lame_set_useTemporal(gfp, int_value ? 1 : 0);
 
-                T_ELIF_INTERNAL("nspsytune")
+                } else if (dev_only_without_arg("nspsytune", token, &argIgnored)) {
                     ;
 
-                T_ELIF_INTERNAL("nssafejoint")
+                } else if (dev_only_without_arg("nssafejoint", token, &argIgnored)) {
                     lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | 2);
 
-                T_ELIF_INTERNAL_WITH_ARG("nsmsfix")
+                } else if (dev_only_with_arg("nsmsfix", token, nextArg, &argIgnored, &argUsed)) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed)
                         (void) lame_set_msfix(gfp, double_value);
 
-                T_ELIF_INTERNAL_WITH_ARG("ns-bass")
+                } else if (dev_only_with_arg("ns-bass", token, nextArg, &argIgnored, &argUsed)) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed) {
-                        int     k = (int) (double_value * 4);
-                        if (k < -32)
-                            k = -32;
-                        if (k > 31)
-                            k = 31;
-                        if (k < 0)
-                            k += 64;
-                        lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 2));
+                        int k = encode_ns_tuning(double_value);
+
+                        lame_set_exp_nspsytune(
+                            gfp, lame_get_exp_nspsytune(gfp) | (k << 2));
                     }
 
-                T_ELIF_INTERNAL_WITH_ARG("ns-alto")
+                } else if (dev_only_with_arg("ns-alto", token, nextArg, &argIgnored, &argUsed)) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed) {
-                        int     k = (int) (double_value * 4);
-                        if (k < -32)
-                            k = -32;
-                        if (k > 31)
-                            k = 31;
-                        if (k < 0)
-                            k += 64;
-                        lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 8));
+                        int k = encode_ns_tuning(double_value);
+
+                        lame_set_exp_nspsytune(
+                            gfp, lame_get_exp_nspsytune(gfp) | (k << 8));
                     }
 
-                T_ELIF_INTERNAL_WITH_ARG("ns-treble")
+                } else if (dev_only_with_arg("ns-treble", token, nextArg, &argIgnored, &argUsed)) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed) {
-                        int     k = (int) (double_value * 4);
-                        if (k < -32)
-                            k = -32;
-                        if (k > 31)
-                            k = 31;
-                        if (k < 0)
-                            k += 64;
-                        lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 14));
+                        int k = encode_ns_tuning(double_value);
+
+                        lame_set_exp_nspsytune(
+                            gfp, lame_get_exp_nspsytune(gfp) | (k << 14));
                     }
 
-                T_ELIF_INTERNAL_WITH_ARG("ns-sfb21")
-                    /*  to be compatible with Naoki's original code,
-                     *  ns-sfb21 specifies how to change ns-treble for sfb21 */
+                } else if (dev_only_with_arg("ns-sfb21", token, nextArg, &argIgnored, &argUsed)) {
+                    /* Preserve Naoki's original packed ns-sfb21 encoding. */
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed) {
-                        int     k = (int) (double_value * 4);
-                        if (k < -32)
-                            k = -32;
-                        if (k > 31)
-                            k = 31;
-                        if (k < 0)
-                            k += 64;
-                        lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 20));
+                        int k = encode_ns_tuning(double_value);
+
+                        lame_set_exp_nspsytune(
+                            gfp, lame_get_exp_nspsytune(gfp) | (k << 20));
                     }
 
-                T_ELIF_INTERNAL_WITH_ARG("tune") /*without helptext */
+                } else if (dev_only_with_arg("tune", token, nextArg, &argIgnored, &argUsed)) { /*without helptext */
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed)
                         lame_set_tune(gfp, (float) double_value);
 
-                T_ELIF_INTERNAL_WITH_ARG("shortthreshold")
-                {
-                    float   x, y;
-                    int     n = sscanf(nextArg, "%f,%f", &x, &y);
-                    if (n == 1) {
-                        y = x;
+                } else if (dev_only_with_arg("shortthreshold", token, nextArg, &argIgnored, &argUsed)) {
+                    float x;
+                    float y;
+
+                    if (!parse_float_pair(nextArg, &x, &y)) {
+                        error_printf("invalid --shortthreshold value '%s'\n",
+                                     nextArg);
+                        return -1;
                     }
+
                     (void) lame_set_short_threshold(gfp, x, y);
-                }
-                T_ELIF_INTERNAL_WITH_ARG("maskingadjust") /*without helptext */
+                } else if (dev_only_with_arg("maskingadjust", token, nextArg, &argIgnored, &argUsed)) { /*without helptext */
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed)
                         (void) lame_set_maskingadjust(gfp, (float) double_value);
 
-                T_ELIF_INTERNAL_WITH_ARG("maskingadjustshort") /*without helptext */
+                } else if (dev_only_with_arg("maskingadjustshort", token, nextArg, &argIgnored, &argUsed)) { /*without helptext */
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed)
                         (void) lame_set_maskingadjust_short(gfp, (float) double_value);
 
-                T_ELIF_INTERNAL_WITH_ARG("athcurve") /*without helptext */
+                } else if (dev_only_with_arg("athcurve", token, nextArg, &argIgnored, &argUsed)) { /*without helptext */
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed)
                         (void) lame_set_ATHcurve(gfp, (float) double_value);
 
-                T_ELIF_INTERNAL("no-preset-tune") /*without helptext */
+                } else if (dev_only_without_arg("no-preset-tune", token, &argIgnored)) { /*without helptext */
                     (void) lame_set_preset_notune(gfp, 0);
 
-                T_ELIF_INTERNAL_WITH_ARG("substep")
+                } else if (dev_only_with_arg("substep", token, nextArg, &argIgnored, &argUsed)) {
                     argUsed = getIntValue(token, nextArg, &int_value);
                     if (argUsed)
                         (void) lame_set_substep(gfp, int_value);
 
-                T_ELIF_INTERNAL_WITH_ARG("sbgain") /*without helptext */
+                } else if (dev_only_with_arg("sbgain", token, nextArg, &argIgnored, &argUsed)) { /*without helptext */
                     argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed) 
+                    if (argUsed)
                         (void) lame_set_subblock_gain(gfp, int_value);
 
-                T_ELIF_INTERNAL("sfscale") /*without helptext */
+                } else if (dev_only_without_arg("sfscale", token, &argIgnored)) { /*without helptext */
                     (void) lame_set_sfscale(gfp, 1);
 
-                T_ELIF_INTERNAL("noath")
+                } else if (dev_only_without_arg("noath", token, &argIgnored)) {
                     (void) lame_set_noATH(gfp, 1);
 
-                T_ELIF_INTERNAL("athonly")
+                } else if (dev_only_without_arg("athonly", token, &argIgnored)) {
                     (void) lame_set_ATHonly(gfp, 1);
 
-                T_ELIF_INTERNAL("athshort")
+                } else if (dev_only_without_arg("athshort", token, &argIgnored)) {
                     (void) lame_set_ATHshort(gfp, 1);
 
-                T_ELIF_INTERNAL_WITH_ARG("athlower")
+                } else if (dev_only_with_arg("athlower", token, nextArg, &argIgnored, &argUsed)) {
                     argUsed = getDoubleValue(token, nextArg, &double_value);
                     if (argUsed)
                         (void) lame_set_ATHlower(gfp, (float) double_value);
 
-                T_ELIF_INTERNAL_WITH_ARG("athtype")
+                } else if (dev_only_with_arg("athtype", token, nextArg, &argIgnored, &argUsed)) {
                     argUsed = getIntValue(token, nextArg, &int_value);
                     if (argUsed)
                         (void) lame_set_ATHtype(gfp, int_value);
 
-                T_ELIF_INTERNAL_WITH_ARG("athaa-type") /*  switch for developing, no DOCU */
+                } else if (dev_only_with_arg("athaa-type", token, nextArg, &argIgnored, &argUsed)) { /*  switch for developing, no DOCU */
                     /* once was 1:Gaby, 2:Robert, 3:Jon, else:off */
                     argUsed = getIntValue(token, nextArg, &int_value);
                     if (argUsed)
                         (void) lame_set_athaa_type(gfp, int_value); /* now: 0:off else:Jon */
 
-                T_ELIF_INTERNAL_WITH_ARG("debug-file") /* switch for developing, no DOCU */
-                    /* file name to print debug info into */
+                } else if (dev_only_with_arg("debug-file", token, nextArg, &argIgnored, &argUsed)) { /* switch for developing, no DOCU */
+                    if (argument_missing(token, nextArg))
+                        return -1;
                     set_debug_file(nextArg);
 
-                T_ELSE {
+                } else {
                     if (!argIgnored) {
                         error_printf("%s: unrecognized option --%s\n", ProgramName, token);
                         return -1;
                     }
                     argIgnored = 0;
                 }
-                T_END   i += argUsed;
+                i += argUsed;
 
             }
             else {
@@ -1507,7 +1914,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 
                     case 'q':
                         argUsed = getIntValue("q", arg, &int_value);
-                        if (argUsed) 
+                        if (argUsed)
                             (void) lame_set_quality(gfp, int_value);
                         break;
                     case 'f':
@@ -1520,9 +1927,16 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     case 's':
                         argUsed = getDoubleValue("s", arg, &double_value);
                         if (argUsed) {
-                            double_value = (int) (double_value * (double_value <= 192 ? 1.e3 : 1.e0) + 0.5);
-                            global_reader.input_samplerate = (int)double_value;
-                            (void) lame_set_in_samplerate(gfp, (int)double_value);
+                            int hz;
+
+                            if (!frequency_to_hz(double_value, 192.0, 1, &hz)) {
+                                error_printf("%s: invalid input sample rate '%s'\n",
+                                             ProgramName, arg);
+                                return -1;
+                            }
+
+                            global_reader.input_samplerate = hz;
+                            (void) lame_set_in_samplerate(gfp, hz);
                         }
                         break;
                     case 'b':
@@ -1578,11 +1992,15 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                             bother to toy around with them
                          */
                         {
-                            int     x, y;
-                            int     n = sscanf(arg, "%d,%d", &x, &y);
-                            if (n == 1) {
-                                y = x;
+                            int x;
+                            int y;
+
+                            if (!parse_int_pair(arg, &x, &y)) {
+                                error_printf("%s: invalid -X value '%s'\n",
+                                             ProgramName, arg);
+                                return -1;
                             }
+
                             argUsed = 1;
                             if (internal_opts_enabled) {
                                 lame_set_quant_comp(gfp, x);
@@ -1597,12 +2015,11 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         /*  experimental switch -Z:
                          */
                         {
-                            int     n = 1;
-                            argUsed = sscanf(arg, "%d", &n);
-                            /*if (internal_opts_enabled)*/
-                            {
+                            int n = 1;
+
+                            argUsed = getIntValue("Z", arg, &n);
+                            if (argUsed)
                                 lame_set_experimentalZ(gfp, n);
-                            }
                         }
                         break;
                     case 'c':
@@ -1633,8 +2050,13 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
         }
         else {
             if (nogap) {
-                if ((num_nogap != NULL) && (count_nogap < *num_nogap)) {
-                    strncpy(nogap_inPath[count_nogap++], argv[i], PATH_MAX + 1);
+                if (num_nogap != NULL && nogap_inPath != NULL &&
+                    count_nogap < *num_nogap &&
+                    nogap_inPath[count_nogap] != NULL) {
+                    if (copy_path(nogap_inPath[count_nogap], PATH_MAX + 1,
+                                  argv[i], ProgramName, "nogap input") != 0)
+                        return -1;
+                    ++count_nogap;
                     input_file = 1;
                 }
                 else {
@@ -1652,12 +2074,17 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                 /* normal options:   inputfile  [outputfile], and
                    either one can be a '-' for stdin/stdout */
                 if (inPath[0] == '\0') {
-                    strncpy(inPath, argv[i], PATH_MAX + 1);
+                    if (copy_path(inPath, PATH_MAX + 1, argv[i],
+                                  ProgramName, "input") != 0)
+                        return -1;
                     input_file = 1;
                 }
                 else {
-                    if (outPath[0] == '\0')
-                        strncpy(outPath, argv[i], PATH_MAX + 1);
+                    if (outPath[0] == '\0') {
+                        if (copy_path(outPath, PATH_MAX + 1, argv[i],
+                                      ProgramName, "output") != 0)
+                            return -1;
+                    }
                     else {
                         error_printf("%s: excess arg %s\n", ProgramName, argv[i]);
                         return -1;
@@ -1685,8 +2112,9 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 
     if (outPath[0] == '\0') { /* no explicit output dir or file */
         if (count_nogap > 0) { /* in case of nogap encode */
-            strncpy(outPath, outDir, PATH_MAX);
-            outPath[PATH_MAX] = '\0'; /* whatever someone set via --out-dir <path> argument */
+            if (copy_path(outPath, PATH_MAX + 1, outDir,
+                          ProgramName, "out-dir") != 0)
+                return -1;
         }
         else if (inPath[0] == '-') {
             /* if input is stdin, default output is stdout */
@@ -1747,62 +2175,112 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 }
 
 static int
-string_to_argv(char* str, char** argv, int N)
+string_to_argv(char *str, char **argv, size_t capacity)
 {
-    int     argc = 0;
-    if (str == 0) return argc;
-    argv[argc++] = "lhama";
-    for (;;) {
-        int     quoted = 0;
-        while (isspace(*str)) { /* skip blanks */
-            ++str;
-        }
-        if (*str == '\"') { /* is quoted argument ? */
-            quoted = 1;
-            ++str;
-        }
-        if (*str == '\0') { /* end of string reached */
+    size_t argc = 0;
+    char *read;
+    char *write;
+
+    if (str == NULL)
+        return 0;
+
+    if (argv == NULL || capacity == 0)
+        return -1;
+
+    argv[argc++] = (char *) "lamer";
+    read = str;
+    write = str;
+
+    while (*read != '\0') {
+        int quoted = 0;
+
+        while (isspace((unsigned char) *read))
+            ++read;
+
+        if (*read == '\0')
             break;
+
+        if (argc >= capacity) {
+            error_printf("LAMEOPT contains too many arguments\n");
+            return -1;
         }
-        /* found beginning of some argument */
-        if (argc < N) {
-            argv[argc++] = str;
-        }
-        /* look out for end of argument, either end of string, blank or quote */
-        for(; *str != '\0'; ++str) {
+
+        argv[argc++] = write;
+
+        while (*read != '\0') {
+            unsigned char ch = (unsigned char) *read++;
+
             if (quoted) {
-                if (*str == '\"') { /* end of quotation reached */
-                    *str++ = '\0';
-                    break;
+                if (ch == '"') {
+                    quoted = 0;
+                    continue;
                 }
+
+                if (ch == '\\' &&
+                    (*read == '"' || *read == '\\'))
+                    ch = (unsigned char) *read++;
+
+                *write++ = (char) ch;
+                continue;
             }
-            else {
-                if (isspace(*str)) { /* parameter separator reached */
-                    *str++ = '\0';
-                    break;
-                }
+
+            if (ch == '"') {
+                quoted = 1;
+                continue;
             }
+
+            if (isspace(ch))
+                break;
+
+            if (ch == '\\' && *read != '\0')
+                ch = (unsigned char) *read++;
+
+            *write++ = (char) ch;
         }
+
+        if (quoted) {
+            error_printf("LAMEOPT contains an unterminated quoted argument\n");
+            return -1;
+        }
+
+        *write++ = '\0';
     }
-    return argc;
+
+    return (int) argc;
 }
+
 
 static int
-merge_argv(int argc, char** argv, int str_argc, char** str_argv, int N)
+merge_argv(int argc, char **argv, int env_argc,
+           char **merged_argv, size_t capacity)
 {
-    int     i;
-    int     merged_argc = str_argc;
+    size_t merged_argc;
+    int i;
 
-    if (argc > 0) {
-        str_argv[0] = argv[0];
-        if (merged_argc < 1)
+    if (merged_argv == NULL || capacity == 0 || argc < 0 || env_argc < 0)
+        return -1;
+
+    merged_argc = (size_t) env_argc;
+
+    if (argc > 0 && argv != NULL) {
+        merged_argv[0] = argv[0];
+
+        if (merged_argc == 0)
             merged_argc = 1;
     }
-    for (i = 1; i < argc && merged_argc < N; ++i) {
-        str_argv[merged_argc++] = argv[i];
+
+    for (i = 1; i < argc; ++i) {
+        if (merged_argc >= capacity) {
+            error_printf("too many command-line arguments\n");
+            return -1;
+        }
+
+        merged_argv[merged_argc++] = argv[i];
     }
-    return merged_argc;
+
+    return (int) merged_argc;
 }
+
 
 #ifdef DEBUG
 static void
@@ -1816,18 +2294,46 @@ dump_argv(int argc, char** argv)
 #endif
 
 
-int parse_args(lame_t gfp, int argc, char **argv, char *const inPath, char *const outPath, char **nogap_inPath, int *num_nogap)
+int
+parse_args(lame_t gfp, int argc, char **argv,
+           char *const inPath, char *const outPath,
+           char **nogap_inPath, int *num_nogap)
 {
-    char   *str_argv[512] = { 0 }, *str;
-    int     str_argc, ret;
-    str = lame_getenv("LAMEOPT");
-    str_argc = string_to_argv(str, str_argv, dimension_of(str_argv));
-    str_argc = merge_argv(argc, argv, str_argc, str_argv, dimension_of(str_argv));
+    char *merged_argv[512] = { NULL };
+    char *env_options;
+    int env_argc;
+    int merged_argc;
+    int ret;
+
+    if (argc < 0 || (argc > 0 && argv == NULL))
+        return -1;
+
+    env_options = lame_getenv("LAMEOPT");
+
+    env_argc = string_to_argv(
+        env_options, merged_argv, ARRAY_SIZE(merged_argv));
+
+    if (env_argc < 0) {
+        free(env_options);
+        return -1;
+    }
+
+    merged_argc = merge_argv(
+        argc, argv, env_argc, merged_argv, ARRAY_SIZE(merged_argv));
+
+    if (merged_argc < 0) {
+        free(env_options);
+        return -1;
+    }
+
 #ifdef DEBUG
-    dump_argv(str_argc, str_argv);
+    dump_argv(merged_argc, merged_argv);
 #endif
-    ret = parse_args_(gfp, str_argc, str_argv, inPath, outPath, nogap_inPath, num_nogap);
-    free(str);
+
+    ret = parse_args_(gfp, merged_argc, merged_argv,
+                      inPath, outPath, nogap_inPath, num_nogap);
+
+    free(env_options);
     return ret;
 }
 

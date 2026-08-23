@@ -2,20 +2,11 @@
 # include <config.h>
 #endif
 
-#ifdef STDC_HEADERS
-# include <stdlib.h>
-# include <string.h>
-#else
-# ifndef HAVE_STRCHR
-#  define strchr index
-#  define strrchr rindex
-# endif
-char   *strchr(), *strrchr();
-# ifndef HAVE_MEMCPY
-#  define memcpy(d, s, n) bcopy ((s), (d), (n))
-#  define memmove(d, s, n) bcopy ((s), (d), (n))
-# endif
-#endif
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #if defined(HAVE_NCURSES_TERMCAP_H)
 # include <ncurses/termcap.h>
@@ -28,158 +19,321 @@ char   *strchr(), *strrchr();
 # endif
 #endif
 
-#include <stdio.h>
-#include <stdarg.h>
 #include "console.h"
 #include "main.h"
 
 #ifdef WITH_DMALLOC
-#include <dmalloc.h>
+# include <dmalloc.h>
 #endif
 
-#define CLASS_ID           0x434F4E53
+#define CLASS_ID 0x434F4E53UL
+
+#define DEFAULT_CONSOLE_WIDTH  80
+#define DEFAULT_CONSOLE_HEIGHT 25
 
 
 /*
- * Taken from Termcap_Manual.html:
+ * Copy a string into a fixed-size destination.
  *
- * With the Unix version of termcap, you must allocate space for the description yourself and pass
- * the address of the space as the argument buffer. There is no way you can tell how much space is
- * needed, so the convention is to allocate a buffer 2048 characters long and assume that is
- * enough.  (Formerly the convention was to allocate 1024 characters and assume that was enough.
- * But one day, for one kind of terminal, that was not enough.)
+ * Unlike strncpy(), this always terminates the destination when n != 0
+ * and does not unnecessarily zero-fill the remainder of the buffer.
  */
+static void
+copy_string(char *dest, size_t n, const char *src)
+{
+    size_t len;
+
+    if (dest == NULL || n == 0)
+        return;
+
+    if (src == NULL) {
+        dest[0] = '\0';
+        return;
+    }
+
+    len = strlen(src);
+    if (len >= n)
+        len = n - 1;
+
+    memcpy(dest, src, len);
+    dest[len] = '\0';
+}
+
 
 #ifdef HAVE_TERMCAP
 
+/*
+ * Modern ncurses accepts a NULL storage argument to tgetstr().
+ *
+ * This is important: the traditional termcap API has no way to tell
+ * tgetstr() how large a caller-provided output area is.  Passing a tiny
+ * temporary buffer therefore cannot be made bounds-safe.
+ *
+ * LAME copies only the resulting capability into its own bounded
+ * destination.
+ */
 static void
-get_termcap_string(char const* id, char* dest, size_t n)
+get_termcap_string(const char *id, char *dest, size_t n)
 {
-    char    tc[16];
-    char   *tp = tc;
-    tp[0] = '\0';
-    tp = tgetstr(id, &tp);
-    if (tp != NULL && dest != NULL && n > 0) {
-        strncpy(dest, tp, n);
-        dest[n-1] = '\0';
-    }
+    const char *value;
+
+    if (id == NULL || dest == NULL || n == 0)
+        return;
+
+    value = tgetstr(id, NULL);
+    if (value != NULL)
+        copy_string(dest, n, value);
 }
 
-static void 
-get_termcap_number(char const* id, int* dest, int low, int high)
-{
-    int const val = tgetnum(id);
-    if (low <= val && val <= high) {
-        *dest = val;
-    }
-}
 
 static void
-apply_termcap_settings(Console_IO_t * const mfp)
+get_termcap_number(const char *id, int *dest, int low, int high)
 {
-    /* try to catch additional information about special console sequences */
-    char const* term_name = getenv("TERM");
-    if (NULL != term_name) {
-        char    term_buff[4096];
-        int const ret = tgetent(term_buff, term_name);
-        if (1 == ret) {
-            get_termcap_number("co", &mfp->disp_width, 40, 512);
-            get_termcap_number("li", &mfp->disp_height, 16, 256);
-            get_termcap_string("up", mfp->str_up, sizeof(mfp->str_up));
-            get_termcap_string("md", mfp->str_emph, sizeof(mfp->str_emph));
-            get_termcap_string("me", mfp->str_norm, sizeof(mfp->str_norm));
-            get_termcap_string("ce", mfp->str_clreoln, sizeof(mfp->str_clreoln));
-        }
-    }
+    int value;
+
+    if (id == NULL || dest == NULL)
+        return;
+
+    value = tgetnum(id);
+
+    if (value >= low && value <= high)
+        *dest = value;
 }
-#endif /* TERMCAP_AVAILABLE */
+
+
+static void
+apply_termcap_settings(Console_IO_t *mfp)
+{
+    const char *term_name;
+
+    if (mfp == NULL)
+        return;
+
+    term_name = getenv("TERM");
+
+    if (term_name == NULL || term_name[0] == '\0')
+        return;
+
+    /*
+     * ncurses and modern terminfo-backed termcap implementations do not
+     * require a caller-owned terminal-description buffer.
+     */
+    if (tgetent(NULL, term_name) != 1)
+        return;
+
+    get_termcap_number("co",
+                       &mfp->disp_width,
+                       40,
+                       512);
+
+    get_termcap_number("li",
+                       &mfp->disp_height,
+                       16,
+                       256);
+
+    get_termcap_string("up",
+                       mfp->str_up,
+                       sizeof(mfp->str_up));
+
+    get_termcap_string("md",
+                       mfp->str_emph,
+                       sizeof(mfp->str_emph));
+
+    get_termcap_string("me",
+                       mfp->str_norm,
+                       sizeof(mfp->str_norm));
+
+    get_termcap_string("ce",
+                       mfp->str_clreoln,
+                       sizeof(mfp->str_clreoln));
+}
+
+#endif /* HAVE_TERMCAP */
+
 
 static int
-is_console_initialized(Console_IO_t * const mfp)
+is_console_initialized(const Console_IO_t *mfp)
 {
-    return mfp && mfp->ClassID == CLASS_ID ? 1 : 0;
+    return mfp != NULL && mfp->ClassID == CLASS_ID;
 }
 
-static int
-init_console(Console_IO_t * const mfp)
+
+static void
+reset_console_strings(Console_IO_t *mfp)
 {
-    if (is_console_initialized(mfp)) {
-        return 0; /* already initialized */
-    }
-    /* setup basics of brhist I/O channels */
-    mfp->disp_width = 80;
-    mfp->disp_height = 25;
+    if (mfp == NULL)
+        return;
+
+    /*
+     * Cursor-up has historically had an ANSI fallback.
+     * The other capabilities remain empty unless termcap supplies them.
+     */
+    copy_string(mfp->str_up,
+                sizeof(mfp->str_up),
+                "\033[A");
+
+    mfp->str_emph[0] = '\0';
+    mfp->str_norm[0] = '\0';
+    mfp->str_clreoln[0] = '\0';
+}
+
+
+static int
+init_console(Console_IO_t *mfp)
+{
+    if (mfp == NULL)
+        return -1;
+
+    if (is_console_initialized(mfp))
+        return 0;
+
+    /*
+     * Keep the object visibly uninitialized until setup has completed.
+     */
+    mfp->ClassID = 0;
+
+    mfp->disp_width = DEFAULT_CONSOLE_WIDTH;
+    mfp->disp_height = DEFAULT_CONSOLE_HEIGHT;
+
     mfp->Console_fp = stderr;
     mfp->Error_fp = stderr;
     mfp->Report_fp = NULL;
 
-    /*mfp -> Console_buff = calloc ( 1, REPORT_BUFF_SIZE ); */
-    setvbuf(mfp->Console_fp, mfp->Console_buff, _IOFBF, sizeof(mfp->Console_buff));
-/*  setvbuf ( mfp -> Error_fp  , NULL                   , _IONBF, 0                                ); */
-
-    strcpy(mfp->str_up, "\033[A");
+    reset_console_strings(mfp);
 
 #ifdef HAVE_TERMCAP
     apply_termcap_settings(mfp);
-#endif /* TERMCAP_AVAILABLE */
+#endif
+
+    /*
+     * Do not change stderr's buffering with setvbuf().
+     *
+     * stderr is process-global, and changing its buffering here affects
+     * code outside this module.  It also makes teardown/reinitialization
+     * unnecessarily complicated.
+     */
 
     mfp->ClassID = CLASS_ID;
+
     return 0;
 }
 
+
 static void
-deinit_console(Console_IO_t * const mfp)
+deinit_console(Console_IO_t *mfp)
 {
-    if (!is_console_initialized(mfp)) {
-        return; /* not initialized or already de-initialized */
-    }
+    FILE *console_fp;
+    FILE *error_fp;
+
+    if (!is_console_initialized(mfp))
+        return;
+
+    console_fp = mfp->Console_fp;
+    error_fp = mfp->Error_fp;
+
+    /*
+     * fclose() flushes Report_fp.
+     */
     if (mfp->Report_fp != NULL) {
         fclose(mfp->Report_fp);
         mfp->Report_fp = NULL;
     }
-    fflush(mfp->Console_fp);
-    setvbuf(mfp->Console_fp, NULL, _IONBF, (size_t) 0);
 
-    memset(mfp->Console_buff, 0x55, sizeof(mfp->Console_buff));
+    if (console_fp != NULL)
+        (void) fflush(console_fp);
+
+    /*
+     * Avoid flushing the same FILE twice when both channels use stderr.
+     */
+    if (error_fp != NULL && error_fp != console_fp)
+        (void) fflush(error_fp);
+
+    /*
+     * Invalidate the object completely.  In particular, ClassID must be
+     * cleared so frontend_open_console() can initialize it again.
+     */
+    mfp->Console_fp = NULL;
+    mfp->Error_fp = NULL;
+
+    mfp->disp_width = DEFAULT_CONSOLE_WIDTH;
+    mfp->disp_height = DEFAULT_CONSOLE_HEIGHT;
+
+    mfp->str_up[0] = '\0';
+    mfp->str_emph[0] = '\0';
+    mfp->str_norm[0] = '\0';
+    mfp->str_clreoln[0] = '\0';
+
+    mfp->ClassID = 0;
 }
 
-/*  LAME console
+
+/*
+ * LAME console state.
+ *
+ * Static-duration objects are zero-initialized before program startup.
  */
 Console_IO_t Console_IO;
 
-enum ConsoleEnum { ConsoleIoConsole, ConsoleIoError, ConsoleIoReport };
 
-static FILE*
-frontend_console_file_handle(enum ConsoleEnum e)
+enum ConsoleEnum {
+    ConsoleIoConsole,
+    ConsoleIoError,
+    ConsoleIoReport
+};
+
+
+static FILE *
+frontend_console_file_handle(enum ConsoleEnum channel)
 {
-    if (is_console_initialized(&Console_IO)) {
-        switch (e) {
-        case ConsoleIoConsole:  return Console_IO.Console_fp;
-        case ConsoleIoError:    return Console_IO.Error_fp;
-        case ConsoleIoReport:   return Console_IO.Report_fp;
-        }
+    if (!is_console_initialized(&Console_IO))
+        return NULL;
+
+    switch (channel) {
+    case ConsoleIoConsole:
+        return Console_IO.Console_fp;
+
+    case ConsoleIoError:
+        return Console_IO.Error_fp;
+
+    case ConsoleIoReport:
+        return Console_IO.Report_fp;
+
+    default:
+        return NULL;
     }
-    return 0;
 }
+
 
 static int
-frontend_console_print(const char *format, va_list ap, enum ConsoleEnum e)
+frontend_console_print(const char *format,
+                       va_list ap,
+                       enum ConsoleEnum channel)
 {
-    FILE    *fp = frontend_console_file_handle(e);
+    FILE *fp;
 
-    if (fp != NULL)
-        return vfprintf(fp, format, ap);
-    return 0;
+    if (format == NULL)
+        return 0;
+
+    fp = frontend_console_file_handle(channel);
+
+    if (fp == NULL)
+        return 0;
+
+    return vfprintf(fp, format, ap);
 }
+
 
 static void
-frontend_console_flush(enum ConsoleEnum e)
+frontend_console_flush(enum ConsoleEnum channel)
 {
-    FILE    *fp = frontend_console_file_handle(e);
+    FILE *fp;
+
+    fp = frontend_console_file_handle(channel);
 
     if (fp != NULL)
-        fflush(fp);
+        (void) fflush(fp);
 }
+
 
 int
 frontend_open_console(void)
@@ -187,29 +341,40 @@ frontend_open_console(void)
     return init_console(&Console_IO);
 }
 
+
 void
 frontend_close_console(void)
 {
     deinit_console(&Console_IO);
 }
 
+
 void
 frontend_debugf(const char *format, va_list ap)
 {
-    (void) frontend_console_print(format, ap, ConsoleIoReport);
+    (void) frontend_console_print(format,
+                                  ap,
+                                  ConsoleIoReport);
 }
+
 
 void
 frontend_msgf(const char *format, va_list ap)
 {
-    (void) frontend_console_print(format, ap, ConsoleIoConsole);
+    (void) frontend_console_print(format,
+                                  ap,
+                                  ConsoleIoConsole);
 }
+
 
 void
 frontend_errorf(const char *format, va_list ap)
 {
-    (void) frontend_console_print(format, ap, ConsoleIoError);
+    (void) frontend_console_print(format,
+                                  ap,
+                                  ConsoleIoError);
 }
+
 
 void
 frontend_print_null(const char *format, va_list ap)
@@ -218,95 +383,135 @@ frontend_print_null(const char *format, va_list ap)
     (void) ap;
 }
 
+
 int
 console_printf(const char *format, ...)
 {
-    va_list args;
-    int     ret;
+    va_list ap;
+    int ret;
 
-    va_start(args, format);
-    ret = frontend_console_print(format, args,ConsoleIoConsole);
-    va_end(args);
+    va_start(ap, format);
+    ret = frontend_console_print(format,
+                                 ap,
+                                 ConsoleIoConsole);
+    va_end(ap);
 
     return ret;
 }
+
 
 int
 error_printf(const char *format, ...)
 {
-    va_list args;
-    int     ret;
+    va_list ap;
+    int ret;
 
-    va_start(args, format);
-    ret = frontend_console_print(format, args, ConsoleIoError);
-    va_end(args);
+    va_start(ap, format);
+    ret = frontend_console_print(format,
+                                 ap,
+                                 ConsoleIoError);
+    va_end(ap);
 
     return ret;
 }
+
 
 int
 report_printf(const char *format, ...)
 {
-    va_list args;
-    int     ret;
+    va_list ap;
+    int ret;
 
-    va_start(args, format);
-    ret = frontend_console_print(format, args, ConsoleIoReport);
-    va_end(args);
+    va_start(ap, format);
+    ret = frontend_console_print(format,
+                                 ap,
+                                 ConsoleIoReport);
+    va_end(ap);
 
     return ret;
 }
 
+
 void
-console_flush()
+console_flush(void)
 {
     frontend_console_flush(ConsoleIoConsole);
 }
 
+
 void
-error_flush()
+error_flush(void)
 {
     frontend_console_flush(ConsoleIoError);
 }
 
+
 void
-report_flush()
+report_flush(void)
 {
     frontend_console_flush(ConsoleIoReport);
 }
 
+
 void
 console_up(int n_lines)
 {
+    FILE *fp;
+
+    if (n_lines <= 0)
+        return;
+
     if (!is_console_initialized(&Console_IO))
-        return; /* not initialized or already de-initialized */
+        return;
+
+    fp = Console_IO.Console_fp;
+
+    if (fp == NULL)
+        return;
+
     while (n_lines-- > 0)
-        fputs(Console_IO.str_up, Console_IO.Console_fp);
-    console_flush();
+        (void) fputs(Console_IO.str_up, fp);
+
+    (void) fflush(fp);
 }
 
+
 int
-console_getwidth()
+console_getwidth(void)
 {
     if (is_console_initialized(&Console_IO))
         return Console_IO.disp_width;
-    return 80; /* default value */
+
+    return DEFAULT_CONSOLE_WIDTH;
 }
+
 
 void
 set_debug_file(const char *fn)
 {
-    if (is_console_initialized(&Console_IO)) {
-        if (Console_IO.Report_fp == NULL) {
-            Console_IO.Report_fp = lame_fopen(fn, "a");
-            if (Console_IO.Report_fp != NULL) {
-                error_printf("writing debug info into: %s\n", fn);
-            }
-            else {
-                error_printf("Error: can't open for debug info: %s\n", fn);
-            }
-        }
+    FILE *fp;
+
+    if (!is_console_initialized(&Console_IO))
+        return;
+
+    if (Console_IO.Report_fp != NULL)
+        return;
+
+    if (fn == NULL || fn[0] == '\0') {
+        error_printf("Error: no debug output filename specified\n");
+        return;
     }
+
+    fp = lame_fopen(fn, "a");
+
+    if (fp == NULL) {
+        error_printf("Error: can't open for debug info: %s\n", fn);
+        return;
+    }
+
+    Console_IO.Report_fp = fp;
+
+    error_printf("writing debug info into: %s\n", fn);
 }
 
 /* end of console.c */
