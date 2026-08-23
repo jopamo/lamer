@@ -516,79 +516,36 @@ static int bin_search_StepSize(lame_internal_flags* const gfc, gr_info* const co
  *  trancate smaller nubmers into 0 as long as the noise threshold is allowed.
  *
  ************************************************************************/
-static FLOAT median_float(FLOAT a, FLOAT b, FLOAT c) {
-    if (a < b) {
-        if (b < c)
-            return b;
-        return a < c ? c : a;
-    }
-    if (a < c)
-        return a;
-    return b < c ? c : b;
-}
-
-/*
- * Find the largest cutoff whose complete lower/equal groups fit the noise
- * allowance.  Three-way partitioning keeps equal coefficients together, as
- * the old sorted walk did, but avoids sorting every scalefactor band.
- */
 static FLOAT truncate_threshold(FLOAT* const values, int count, FLOAT allowed_noise) {
-    int lower = 0;
-    int upper = count;
-    FLOAT included_threshold = 0.0;
+    FLOAT threshold = 0.0;
+    int remaining = count;
 
-    while (lower < upper) {
-        int const middle = lower + (upper - lower) / 2;
-        FLOAT const pivot = median_float(values[lower], values[middle], values[upper - 1]);
-        int less = lower;
-        int equal = lower;
-        int greater = upper;
-        FLOAT lower_energy = 0.0;
-        FLOAT max_lower = 0.0;
-        FLOAT equal_energy;
+    while (remaining > 0) {
+        FLOAT minimum = FLOAT_MAX;
+        FLOAT maximum = 0.0;
+        FLOAT noise = 0.0;
         int i;
 
-        while (equal < greater) {
-            if (EQ(values[equal], pivot)) {
-                equal++;
-            }
-            else if (values[equal] < pivot) {
-                FLOAT const value = values[less];
-                values[less++] = values[equal];
-                values[equal++] = value;
-            }
-            else {
-                FLOAT const value = values[--greater];
-                values[greater] = values[equal];
-                values[equal] = value;
+        for (i = 0; i < count; i++) {
+            if (values[i] >= 0.0 && values[i] < minimum)
+                minimum = values[i];
+        }
+        for (i = 0; i < count; i++) {
+            if (values[i] >= 0.0 && EQ(values[i], minimum)) {
+                FLOAT const value = values[i];
+                noise += value * value;
+                if (maximum < value)
+                    maximum = value;
+                values[i] = -1.0;
+                remaining--;
             }
         }
-
-        for (i = lower; i < less; i++) {
-            FLOAT const value = values[i];
-            lower_energy += value * value;
-            if (max_lower < value)
-                max_lower = value;
-        }
-        equal_energy = pivot * pivot * (greater - less);
-
-        if (lower_energy > allowed_noise) {
-            if (less == lower)
-                return included_threshold;
-            upper = less;
-            continue;
-        }
-        if (lower_energy + equal_energy > allowed_noise)
-            return max_lower > 0.0 ? max_lower : included_threshold;
-
-        allowed_noise -= lower_energy + equal_energy;
-        included_threshold = pivot;
-        if (greater == upper)
-            return 0.0;
-        lower = greater;
+        if (allowed_noise < noise)
+            return threshold;
+        allowed_noise -= noise;
+        threshold = maximum;
     }
-
-    return included_threshold;
+    return 0.0;
 }
 
 static void trancate_smallspectrums(lame_internal_flags const* gfc, gr_info* const gi, const FLOAT* const l3_xmin, FLOAT* const work) {
@@ -599,12 +556,6 @@ static void trancate_smallspectrums(lame_internal_flags const* gfc, gr_info* con
     if ((!(gfc->sv_qnt.substep_shaping & 4) && gi->block_type == SHORT_TYPE) || gfc->sv_qnt.substep_shaping & 0x80)
         return;
     (void)calc_noise(gi, l3_xmin, distort, &dummy, 0);
-    for (j = 0; j < 576; j++) {
-        FLOAT xr = 0.0;
-        if (gi->l3_enc[j] != 0)
-            xr = fabs(gi->xr[j]);
-        work[j] = xr;
-    }
 
     j = 0;
     sfb = 8;
@@ -612,17 +563,27 @@ static void trancate_smallspectrums(lame_internal_flags const* gfc, gr_info* con
         sfb = 6;
     do {
         FLOAT allowedNoise, trancateThreshold;
+        FLOAT band_max = 0.0;
 
         width = gi->width[sfb];
         j += width;
         if (distort[sfb] >= 1.0)
             continue;
 
-        if (EQ(work[j - 1], 0.0))
+        {
+            int n;
+            for (n = 0; n < width; n++) {
+                int const pos = j - width + n;
+                work[n] = gi->l3_enc[pos] != 0 ? fabs(gi->xr[pos]) : 0.0;
+                if (band_max < work[n])
+                    band_max = work[n];
+            }
+        }
+        if (EQ(band_max, 0.0))
             continue; /* all zero sfb */
 
         allowedNoise = (1.0 - distort[sfb]) * l3_xmin[sfb];
-        trancateThreshold = truncate_threshold(&work[j - width], width, allowedNoise);
+        trancateThreshold = truncate_threshold(work, width, allowedNoise);
         if (EQ(trancateThreshold, 0.0))
             continue;
 
