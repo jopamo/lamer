@@ -24,28 +24,28 @@
 
 #include "version.h"
 
-#include <stdio.h>
 #include <assert.h>
+#include <stdio.h>
 
 #ifdef STDC_HEADERS
-# include <stdlib.h>
-# include <string.h>
+#include <stdlib.h>
+#include <string.h>
 #else
-# ifndef HAVE_STRCHR
-#  define strchr index
-#  define strrchr rindex
-# endif
-char   *strchr(), *strrchr();
-# ifndef HAVE_MEMCPY
-#  define memcpy(d, s, n) bcopy ((s), (d), (n))
-#  define memmove(d, s, n) bcopy ((s), (d), (n))
-# endif
+#ifndef HAVE_STRCHR
+#define strchr index
+#define strrchr rindex
+#endif
+char *strchr(), *strrchr();
+#ifndef HAVE_MEMCPY
+#define memcpy(d, s, n) bcopy((s), (d), (n))
+#define memmove(d, s, n) bcopy((s), (d), (n))
+#endif
 #endif
 
-#if  defined(__riscos__)  &&  defined(FPA10)
-# include "ymath.h"
+#if defined(__riscos__) && defined(FPA10)
+#include "ymath.h"
 #else
-# include <math.h>
+#include <math.h>
 #endif
 #include <float.h>
 #include <limits.h>
@@ -53,21 +53,21 @@ char   *strchr(), *strrchr();
 #include <ctype.h>
 
 #ifdef HAVE_ERRNO_H
-# include <errno.h>
+#include <errno.h>
 #endif
 #ifdef HAVE_FCNTL_H
-# include <fcntl.h>
+#include <fcntl.h>
 #endif
 
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 #ifdef HAVE_INTTYPES_H
-# include <inttypes.h>
+#include <inttypes.h>
 #else
-# ifdef HAVE_STDINT_H
-#  include <stdint.h>
-# endif
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #endif
 
 #ifdef WITH_DMALLOC
@@ -81,23 +81,23 @@ char   *strchr(), *strrchr();
  *   - exp()   on some machines this is claimed to be faster than pow()
  */
 
-#define POW20(x) (assert(0 <= (x+Q_MAX2) && x < Q_MAX), pow20[x+Q_MAX2])
+#define POW20(x) (assert(0 <= (x + Q_MAX2) && x < Q_MAX), pow20[x + Q_MAX2])
 /*#define POW20(x)  pow(2.0,((double)(x)-210)*.25) */
 /*#define POW20(x)  exp( ((double)(x)-210)*(.25*LOG2) ) */
 
-#define IPOW20(x)  (assert(0 <= x && x < Q_MAX), ipow20[x])
+#define IPOW20(x) (assert(0 <= x && x < Q_MAX), ipow20[x])
 /*#define IPOW20(x)  exp( -((double)(x)-210)*.1875*LOG2 ) */
 /*#define IPOW20(x)  pow(2.0,-((double)(x)-210)*.1875) */
 
 /* in case this is used without configure */
 #ifndef inline
-# define inline
+#define inline
 #endif
 
 #if defined(__GNUC__) || defined(__ICC) || defined(__ECC)
 /* if __GNUC__ we always want to inline, not only if the user requests it */
-# undef inline
-# define inline __inline
+#undef inline
+#define inline __inline
 #endif
 
 /*
@@ -117,37 +117,35 @@ typedef float FLOAT;
 
 #ifndef FLOAT8
 typedef double FLOAT8;
-# define FLOAT8_MAX DBL_MAX
+#define FLOAT8_MAX DBL_MAX
 #else
-# define FLOAT8_MAX FLT_MAX
+#define FLOAT8_MAX FLT_MAX
 #endif
 
 /* sample_t must be floating point, at least 32 bits */
 typedef FLOAT sample_t;
 
-#define dimension_of(array) (sizeof(array)/sizeof(array[0]))
-#define beyond(array) (array+dimension_of(array))
-#define compiletime_assert(expression) enum{static_assert_##FILE##_##LINE = 1/((expression)?1:0)}
-#define lame_calloc(TYPE, COUNT) ((TYPE*)calloc(COUNT, sizeof(TYPE)))
-#define multiple_of(CHUNK, COUNT) (\
-  ( (COUNT) < 1 || (CHUNK) < 1 || (COUNT) % (CHUNK) == 0 ) \
-  ? (COUNT) \
-  : ((COUNT) + (CHUNK) - (COUNT) % (CHUNK)) \
-  )
+#define dimension_of(array) (sizeof(array) / sizeof(array[0]))
+#define beyond(array) (array + dimension_of(array))
+#define compiletime_assert(expression)                                         \
+  enum { static_assert_##FILE##_##LINE = 1 / ((expression) ? 1 : 0) }
+#define lame_calloc(TYPE, COUNT) ((TYPE *)calloc(COUNT, sizeof(TYPE)))
+#define multiple_of(CHUNK, COUNT)                                              \
+  (((COUNT) < 1 || (CHUNK) < 1 || (COUNT) % (CHUNK) == 0)                      \
+       ? (COUNT)                                                               \
+       : ((COUNT) + (CHUNK) - (COUNT) % (CHUNK)))
 
-static inline int
-lame_double_equal(double a, double b)
-{
-    double const abs_a = fabs(a);
-    double const abs_b = fabs(b);
-    double const scale = (abs_a > abs_b) ? abs_a : abs_b;
+static inline int lame_double_equal(double a, double b) {
+  double const abs_a = fabs(a);
+  double const abs_b = fabs(b);
+  double const scale = (abs_a > abs_b) ? abs_a : abs_b;
 
-    return fabs(a - b) <= (scale * 1e-6);
+  return fabs(a - b) <= (scale * 1e-6);
 }
 
-#define EQ(a,b) lame_double_equal((double)(a), (double)(b))
+#define EQ(a, b) lame_double_equal((double)(a), (double)(b))
 
-#define NEQ(a,b) (!EQ(a,b))
+#define NEQ(a, b) (!EQ(a, b))
 
 #endif
 

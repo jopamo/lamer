@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+formatter=${CLANG_FORMAT:-clang-format}
+if ! command -v "$formatter" >/dev/null 2>&1; then
+    echo "pre-commit: clang-format is required to format C and header files" >&2
+    exit 1
+fi
+
+mapfile -d '' files < <(
+    git diff --cached --name-only -z --diff-filter=ACMR -- '*.c' '*.h'
+)
+
+if ((${#files[@]} == 0)); then
+    exit 0
+fi
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+for file in "${files[@]}"; do
+    mode=$(git ls-files -s -- "$file" | awk 'NR == 1 { print $1 }')
+    case "$mode" in
+        100644|100755)
+            ;;
+        *)
+            echo "pre-commit: skipping non-regular file: $file" >&2
+            continue
+            ;;
+    esac
+
+    extension=${file##*.}
+    staged_file=$(mktemp "$tmpdir/source.XXXXXX.$extension")
+    git show ":$file" >"$staged_file"
+    "$formatter" -i -assume-filename="$file" "$staged_file"
+
+    blob=$(git hash-object -w "$staged_file")
+    git update-index --add --cacheinfo "$mode,$blob,$file"
+done

@@ -19,17 +19,16 @@
  * Boston, MA 02111-1307, USA.
  */
 
-
 #ifndef LAME_ENCODER_H
 #define LAME_ENCODER_H
 
 /***********************************************************************
-*
-*  encoder and decoder delays
-*
-***********************************************************************/
+ *
+ *  encoder and decoder delays
+ *
+ ***********************************************************************/
 
-/* 
+/*
  * layer III enc->dec delay:  1056 (1057?)   (observed)
  * layer  II enc->dec delay:   480  (481?)   (observed)
  *
@@ -42,11 +41,11 @@
  * So total Encode+Decode delay = ENCDELAY + 528 + 1
  */
 
-/* 
- * ENCDELAY  The encoder delay.  
+/*
+ * ENCDELAY  The encoder delay.
  *
  * Minimum allowed is MDCTDELAY (see below)
- *  
+ *
  * The first 96 samples will be attenuated, so using a value less than 96
  * will result in corrupt data for the first 96-ENCDELAY samples.
  *
@@ -54,73 +53,65 @@
  * set to 1160 to sync with FhG.
  */
 
-#define ENCDELAY      576
-
-
+#define ENCDELAY 576
 
 /*
  * make sure there is at least one complete frame after the
  * last frame containing real data
  *
- * Using a value of 288 would be sufficient for a 
+ * Using a value of 288 would be sufficient for a
  * a very sophisticated decoder that can decode granule-by-granule instead
- * of frame by frame.  But lets not assume this, and assume the decoder  
+ * of frame by frame.  But lets not assume this, and assume the decoder
  * will not decode frame N unless it also has data for frame N+1
  *
  */
 /*#define POSTDELAY   288*/
-#define POSTDELAY   1152
-
-
-
-/* 
- * delay of the MDCT used in mdct.c
- * original ISO routines had a delay of 528!  
- * Takehiro's routines: 
- */
-
-#define MDCTDELAY     48
-#define FFTOFFSET     (224+MDCTDELAY)
+#define POSTDELAY 1152
 
 /*
- * Most decoders, including the one we use, have a delay of 528 samples.  
+ * delay of the MDCT used in mdct.c
+ * original ISO routines had a delay of 528!
+ * Takehiro's routines:
  */
 
-#define DECDELAY      528
+#define MDCTDELAY 48
+#define FFTOFFSET (224 + MDCTDELAY)
 
+/*
+ * Most decoders, including the one we use, have a delay of 528 samples.
+ */
+
+#define DECDELAY 528
 
 /* number of subbands */
-#define SBLIMIT       32
+#define SBLIMIT 32
 
 /* parition bands bands */
-#define CBANDS        64
+#define CBANDS 64
 
 /* number of critical bands/scale factor bands where masking is computed*/
-#define SBPSY_l       21
-#define SBPSY_s       12
+#define SBPSY_l 21
+#define SBPSY_s 12
 
 /* total number of scalefactor bands encoded */
-#define SBMAX_l       22
-#define SBMAX_s       13
-#define PSFB21         6
-#define PSFB12         6
-
-
+#define SBMAX_l 22
+#define SBMAX_s 13
+#define PSFB21 6
+#define PSFB12 6
 
 /* FFT sizes */
-#define BLKSIZE       1024
-#define HBLKSIZE      (BLKSIZE/2 + 1)
-#define BLKSIZE_s     256
-#define HBLKSIZE_s    (BLKSIZE_s/2 + 1)
-
+#define BLKSIZE 1024
+#define HBLKSIZE (BLKSIZE / 2 + 1)
+#define BLKSIZE_s 256
+#define HBLKSIZE_s (BLKSIZE_s / 2 + 1)
 
 /* #define switch_pe        1800 */
-#define NORM_TYPE     0
-#define START_TYPE    1
-#define SHORT_TYPE    2
-#define STOP_TYPE     3
+#define NORM_TYPE 0
+#define START_TYPE 1
+#define SHORT_TYPE 2
+#define STOP_TYPE 3
 
-/* 
+/*
  * Mode Extention:
  * When we are in stereo mode, there are 4 possible methods to store these
  * two channels. The stereo modes -m? are using a subset of them.
@@ -130,11 +121,11 @@
  *  -mf: MPG_MD_MS_LR
  *  -mi: all
  */
-enum MPEGChannelMode
-{   MPG_MD_LR_LR = 0
-,   MPG_MD_LR_I  = 1
-,   MPG_MD_MS_LR = 2
-,   MPG_MD_MS_I  = 3
+enum MPEGChannelMode {
+  MPG_MD_LR_LR = 0,
+  MPG_MD_LR_I = 1,
+  MPG_MD_MS_LR = 2,
+  MPG_MD_MS_I = 3
 };
 
 #ifndef lame_internal_flags_defined
@@ -143,45 +134,41 @@ struct lame_internal_flags;
 typedef struct lame_internal_flags lame_internal_flags;
 #endif
 
-int     lame_encode_mp3_frame(lame_internal_flags * gfc,
-                              sample_t const *inbuf_l,
-                              sample_t const *inbuf_r, unsigned char *mp3buf, int mp3buf_size);
+int lame_encode_mp3_frame(lame_internal_flags *gfc, sample_t const *inbuf_l,
+                          sample_t const *inbuf_r, unsigned char *mp3buf,
+                          int mp3buf_size);
 
-
-static inline int
-short_transient_attack_win(int final_mask, int pos)
-{
-    if (0 <= pos) {
-        int win = pos / 3;
-        if (win < 0) {
-            win = 0;
-        }
-        if (win > 2) {
-            win = 2;
-        }
-        if (final_mask != 0) {
-            if (win == 0 && (final_mask & 0x01)) {
-                return 0;
-            }
-            if (win == 1 && (final_mask & 0x02)) {
-                return 1;
-            }
-            if (win == 2 && (final_mask & 0x0c)) {
-                return 2;
-            }
-        }
+static inline int short_transient_attack_win(int final_mask, int pos) {
+  if (0 <= pos) {
+    int win = pos / 3;
+    if (win < 0) {
+      win = 0;
     }
-    if (final_mask & 0x01) {
+    if (win > 2) {
+      win = 2;
+    }
+    if (final_mask != 0) {
+      if (win == 0 && (final_mask & 0x01)) {
         return 0;
-    }
-    if (final_mask & 0x02) {
+      }
+      if (win == 1 && (final_mask & 0x02)) {
         return 1;
-    }
-    if (final_mask & 0x0c) {
+      }
+      if (win == 2 && (final_mask & 0x0c)) {
         return 2;
+      }
     }
+  }
+  if (final_mask & 0x01) {
     return 0;
+  }
+  if (final_mask & 0x02) {
+    return 1;
+  }
+  if (final_mask & 0x0c) {
+    return 2;
+  }
+  return 0;
 }
-
 
 #endif /* LAME_ENCODER_H */

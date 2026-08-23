@@ -27,3 +27,12 @@ meson test -C build --print-errorlogs
 ```
 
 The consumer is never installed and is not part of the production library.
+
+Development hooks:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The pre-commit hook formats staged C and header files with `clang-format`
+without changing unrelated unstaged edits.
