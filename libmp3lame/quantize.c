@@ -610,7 +610,8 @@ inline static int quant_compare(const int quant_comp, const calc_noise_result* c
  *        1             Amplify all bands with distort[] >= max_dist^(.5);
  *                     ( 50% in the db scale)
  *
- *        2             Amplify first band with distort[] >= max_dist;
+ *        2             Amplify the band with the best distortion-per-width
+ *                     score.
  *
  *
  *  For algorithms 0 and 1, if max_dist < 1, then amplify all bands
@@ -619,11 +620,39 @@ inline static int quant_compare(const int quant_comp, const calc_noise_result* c
  *
  *
  *************************************************************************/
+static int amp_scalefac_band(gr_info const* const cod_info, FLOAT const* const distort) {
+    FLOAT best_score = -1.0;
+    FLOAT best_distort = -1.0;
+    int best_sfb = 0;
+    int sfb;
+
+    /*
+     * A scalefactor increment costs roughly in proportion to the number of
+     * coefficients it affects.  Prefer the largest perceptual improvement
+     * per affected coefficient instead of concentrating every increment on
+     * the first globally-worst band.
+     */
+    for (sfb = 0; sfb < cod_info->sfbmax; sfb++) {
+        int const width = Max(cod_info->width[sfb], 1);
+        FLOAT const benefit = Max(distort[sfb] - 1.0, 0.0);
+        FLOAT const score = benefit / width;
+
+        if (score > best_score || (EQ(score, best_score) && distort[sfb] > best_distort)) {
+            best_score = score;
+            best_distort = distort[sfb];
+            best_sfb = sfb;
+        }
+    }
+
+    return best_sfb;
+}
+
 static void amp_scalefac_bands(lame_internal_flags* gfc, gr_info* const cod_info, FLOAT const* distort, FLOAT xrpow[576], int bRefine) {
     SessionConfig_t const* const cfg = &gfc->cfg;
     int j, sfb;
     FLOAT ifqstep34, trigger;
     int noise_shaping_amp;
+    int selected_sfb = -1;
 
     if (cod_info->scalefac_scale == 0) {
         ifqstep34 = 1.29683955465100964055; /* 2**(.75*.5) */
@@ -646,9 +675,12 @@ static void amp_scalefac_bands(lame_internal_flags* gfc, gr_info* const cod_info
         else
             noise_shaping_amp = 1;
     }
+    if (noise_shaping_amp == 2)
+        selected_sfb = amp_scalefac_band(cod_info, distort);
+
     switch (noise_shaping_amp) {
         case 2:
-            /* amplify exactly 1 band */
+            /* amplify exactly the best benefit-per-width band */
             break;
 
         case 1:
@@ -674,7 +706,9 @@ static void amp_scalefac_bands(lame_internal_flags* gfc, gr_info* const cod_info
         int const width = cod_info->width[sfb];
         int l;
         j += width;
-        if (distort[sfb] < trigger)
+        if (noise_shaping_amp == 2 && sfb != selected_sfb)
+            continue;
+        if (noise_shaping_amp != 2 && distort[sfb] < trigger)
             continue;
 
         if (gfc->sv_qnt.substep_shaping & 2) {
