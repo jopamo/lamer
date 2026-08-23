@@ -1480,24 +1480,38 @@ static int VBR_old_prepare(lame_internal_flags* gfc,
     return analog_silence;
 }
 
-static void bitpressure_strategy(lame_internal_flags const* gfc, FLOAT l3_xmin[2][2][SFBMAX], const int min_bits[2][2], int max_bits[2][2]) {
+static void bitpressure_strategy(lame_internal_flags const* gfc, FLOAT l3_xmin[2][2][SFBMAX], const int min_bits[2][2], int max_bits[2][2], int used_bits, int available_bits) {
     SessionConfig_t const* const cfg = &gfc->cfg;
+    FLOAT const pressure = (FLOAT)used_bits / Max(available_bits, 1);
+    FLOAT const excess = Min(Max(pressure - 1.0, 0.0), 1.0);
+    FLOAT const mask_relax = 0.25 * excess;
+    FLOAT const bit_scale = Max(0.70, 1.0 - 0.50 * excess);
     int gr, ch, sfb;
+
     for (gr = 0; gr < cfg->mode_gr; gr++) {
         for (ch = 0; ch < cfg->channels_out; ch++) {
             gr_info const* const gi = &gfc->l3_side.tt[gr][ch];
             FLOAT* pxmin = l3_xmin[gr][ch];
-            for (sfb = 0; sfb < gi->psy_lmax; sfb++)
-                *pxmin++ *= 1. + .029 * sfb * sfb / SBMAX_l / SBMAX_l;
+            FLOAT max_xmin = 0.0;
 
-            if (gi->block_type == SHORT_TYPE) {
-                for (sfb = gi->sfb_smin; sfb < SBMAX_s; sfb++) {
-                    *pxmin++ *= 1. + .029 * sfb * sfb / SBMAX_s / SBMAX_s;
-                    *pxmin++ *= 1. + .029 * sfb * sfb / SBMAX_s / SBMAX_s;
-                    *pxmin++ *= 1. + .029 * sfb * sfb / SBMAX_s / SBMAX_s;
+            /*
+             * A large masking threshold is available headroom: relax those
+             * bands more than already-tight bands when the frame is under
+             * bit pressure.
+             */
+            for (sfb = 0; sfb < gi->psymax; sfb++) {
+                if (max_xmin < pxmin[sfb])
+                    max_xmin = pxmin[sfb];
+            }
+            if (max_xmin > 0.0) {
+                for (sfb = 0; sfb < gi->psymax; sfb++) {
+                    FLOAT const headroom = pxmin[sfb] / max_xmin;
+                    FLOAT const weight = 0.25 + 0.75 * headroom;
+                    pxmin[sfb] *= 1.0 + mask_relax * weight;
                 }
             }
-            max_bits[gr][ch] = Max(min_bits[gr][ch], 0.9 * max_bits[gr][ch]);
+
+            max_bits[gr][ch] = Max(min_bits[gr][ch], (int)(bit_scale * max_bits[gr][ch]));
         }
     }
 }
@@ -1585,7 +1599,7 @@ void VBR_old_iteration_loop(lame_internal_flags* gfc, const FLOAT pe[2][2], cons
         if (used_bits <= bits)
             break;
 
-        bitpressure_strategy(gfc, l3_xmin, (const int (*)[2])min_bits, max_bits);
+        bitpressure_strategy(gfc, l3_xmin, (const int (*)[2])min_bits, max_bits, used_bits, bits);
 
     } /* breaks adjusted */
     /*--------------------------------------*/
