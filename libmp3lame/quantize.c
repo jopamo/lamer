@@ -797,52 +797,19 @@ inline static int quant_compare(const int quant_comp, const calc_noise_result* c
  *
  *
  *************************************************************************/
-static int amp_scalefac_band(gr_info const* const cod_info, FLOAT const* const distort) {
-    FLOAT best_score = -1.0;
-    FLOAT best_distort = -1.0;
-    int best_sfb = 0;
-    int sfb;
-
-    /*
-     * A scalefactor increment costs roughly in proportion to the number of
-     * coefficients it affects.  Prefer the largest perceptual improvement
-     * per affected coefficient instead of concentrating every increment on
-     * the first globally-worst band.
-     */
-    for (sfb = 0; sfb < cod_info->sfbmax; sfb++) {
-        int const width = Max(cod_info->width[sfb], 1);
-        FLOAT const benefit = Max(distort[sfb] - 1.0, 0.0);
-        FLOAT const score = benefit / width;
-
-        if (score > best_score || (EQ(score, best_score) && distort[sfb] > best_distort)) {
-            best_score = score;
-            best_distort = distort[sfb];
-            best_sfb = sfb;
-        }
-    }
-
-    return best_sfb;
-}
-
 static void amp_scalefac_bands(lame_internal_flags* gfc, gr_info* const cod_info, FLOAT const* distort, FLOAT xrpow[576], int bRefine) {
     SessionConfig_t const* const cfg = &gfc->cfg;
     int j, sfb;
     FLOAT ifqstep34, trigger;
     int noise_shaping_amp;
     int selected_sfb = -1;
+    FLOAT xmax;
 
     if (cod_info->scalefac_scale == 0) {
         ifqstep34 = 1.29683955465100964055; /* 2**(.75*.5) */
     }
     else {
         ifqstep34 = 1.68179283050742922612; /* 2**(.75*1) */
-    }
-
-    /* compute maximum value of distort[]  */
-    trigger = 0;
-    for (sfb = 0; sfb < cod_info->sfbmax; sfb++) {
-        if (trigger < distort[sfb])
-            trigger = distort[sfb];
     }
 
     noise_shaping_amp = cfg->noise_shaping_amp;
@@ -852,8 +819,50 @@ static void amp_scalefac_bands(lame_internal_flags* gfc, gr_info* const cod_info
         else
             noise_shaping_amp = 1;
     }
-    if (noise_shaping_amp == 2)
-        selected_sfb = amp_scalefac_band(cod_info, distort);
+
+    /*
+     * Find the trigger and, for algorithm 2, the best band in the same SFB
+     * metadata pass.  Comparing cross-products avoids a division in this
+     * repeatedly-called routine.
+     */
+    trigger = 0;
+    if (noise_shaping_amp == 2) {
+        FLOAT best_excess = 0;
+        FLOAT best_distort = -1.0;
+        int best_width = 1;
+        int fallback_sfb = 0;
+
+        for (sfb = 0; sfb < cod_info->sfbmax; sfb++) {
+            FLOAT const value = distort[sfb];
+            int const width = Max(cod_info->width[sfb], 1);
+
+            if (trigger < value) {
+                trigger = value;
+                fallback_sfb = sfb;
+            }
+            if (value > 1.0) {
+                FLOAT const excess = value - 1.0;
+                FLOAT const lhs = excess * best_width;
+                FLOAT const rhs = best_excess * width;
+                if (lhs > rhs || (lhs == rhs && value > best_distort)) {
+                    selected_sfb = sfb;
+                    best_excess = excess;
+                    best_width = width;
+                    best_distort = value;
+                }
+            }
+        }
+        if (best_excess == 0)
+            selected_sfb = fallback_sfb;
+    }
+    else {
+        /* compute maximum value of distort[] */
+        trigger = 0;
+        for (sfb = 0; sfb < cod_info->sfbmax; sfb++) {
+            if (trigger < distort[sfb])
+                trigger = distort[sfb];
+        }
+    }
 
     switch (noise_shaping_amp) {
         case 2:
@@ -878,31 +887,52 @@ static void amp_scalefac_bands(lame_internal_flags* gfc, gr_info* const cod_info
             break;
     }
 
+    xmax = cod_info->xrpow_max;
     j = 0;
+    if (noise_shaping_amp == 2) {
+        for (sfb = 0; sfb < cod_info->sfbmax; sfb++) {
+            int const width = cod_info->width[sfb];
+            int l;
+            j += width;
+            if (sfb != selected_sfb)
+                continue;
+
+            if (gfc->sv_qnt.substep_shaping & 2) {
+                gfc->sv_qnt.pseudohalf[sfb] = !gfc->sv_qnt.pseudohalf[sfb];
+                if (!gfc->sv_qnt.pseudohalf[sfb] && cfg->noise_shaping_amp == 2)
+                    return;
+            }
+            cod_info->scalefac[sfb]++;
+            for (l = -width; l < 0; l++) {
+                FLOAT const value = xrpow[j + l] * ifqstep34;
+                xrpow[j + l] = value;
+                if (value > xmax)
+                    xmax = value;
+            }
+        }
+        cod_info->xrpow_max = xmax;
+        return;
+    }
+
     for (sfb = 0; sfb < cod_info->sfbmax; sfb++) {
         int const width = cod_info->width[sfb];
         int l;
         j += width;
-        if (noise_shaping_amp == 2 && sfb != selected_sfb)
-            continue;
-        if (noise_shaping_amp != 2 && distort[sfb] < trigger)
+        if (distort[sfb] < trigger)
             continue;
 
         if (gfc->sv_qnt.substep_shaping & 2) {
             gfc->sv_qnt.pseudohalf[sfb] = !gfc->sv_qnt.pseudohalf[sfb];
-            if (!gfc->sv_qnt.pseudohalf[sfb] && cfg->noise_shaping_amp == 2)
-                return;
         }
         cod_info->scalefac[sfb]++;
         for (l = -width; l < 0; l++) {
-            xrpow[j + l] *= ifqstep34;
-            if (xrpow[j + l] > cod_info->xrpow_max)
-                cod_info->xrpow_max = xrpow[j + l];
+            FLOAT const value = xrpow[j + l] * ifqstep34;
+            xrpow[j + l] = value;
+            if (value > xmax)
+                xmax = value;
         }
-
-        if (cfg->noise_shaping_amp == 2)
-            return;
     }
+    cod_info->xrpow_max = xmax;
 }
 
 /*************************************************************************
