@@ -42,15 +42,8 @@
 #endif
 
 /* convert from L/R <-> Mid/Side */
-static void ms_convert(III_side_info_t* l3_side, int gr) {
-    int i;
-    for (i = 0; i < 576; ++i) {
-        FLOAT l, r;
-        l = l3_side->tt[gr][0].xr[i];
-        r = l3_side->tt[gr][1].xr[i];
-        l3_side->tt[gr][0].xr[i] = (l + r) * (FLOAT)(SQRT2 * 0.5);
-        l3_side->tt[gr][1].xr[i] = (l - r) * (FLOAT)(SQRT2 * 0.5);
-    }
+static void ms_convert(lame_internal_flags* const gfc, int gr) {
+    gfc->dsp.ms_convert_f32(gfc->l3_side.tt[gr][0].xr, gfc->l3_side.tt[gr][1].xr, 576, (FLOAT)(SQRT2 * 0.5));
 }
 
 /************************************************************************
@@ -1487,7 +1480,7 @@ static int VBR_old_prepare(lame_internal_flags* gfc,
     for (gr = 0; gr < cfg->mode_gr; gr++) {
         mxb = on_pe(gfc, pe, max_bits[gr], avg, gr, 0);
         if (gfc->ov_enc.mode_ext == MPG_MD_MS_LR) {
-            ms_convert(&gfc->l3_side, gr);
+            ms_convert(gfc, gr);
             reduce_side(max_bits[gr], ms_ener_ratio[gr], avg, mxb);
         }
         for (ch = 0; ch < cfg->channels_out; ++ch) {
@@ -1687,7 +1680,7 @@ static int VBR_new_prepare(lame_internal_flags* gfc, const FLOAT pe[2][2], const
     for (gr = 0; gr < cfg->mode_gr; gr++) {
         (void)on_pe(gfc, pe, max_bits[gr], avg, gr, 0);
         if (gfc->ov_enc.mode_ext == MPG_MD_MS_LR) {
-            ms_convert(&gfc->l3_side, gr);
+            ms_convert(gfc, gr);
         }
         for (ch = 0; ch < cfg->channels_out; ++ch) {
             gr_info* const cod_info = &gfc->l3_side.tt[gr][ch];
@@ -1975,7 +1968,7 @@ void ABR_iteration_loop(lame_internal_flags* gfc, const FLOAT pe[2][2], const FL
      */
     for (gr = 0; gr < cfg->mode_gr; gr++) {
         if (gfc->ov_enc.mode_ext == MPG_MD_MS_LR) {
-            ms_convert(&gfc->l3_side, gr);
+            ms_convert(gfc, gr);
         }
         for (ch = 0; ch < cfg->channels_out; ch++) {
             FLOAT adjust, masking_lower_db;
@@ -2053,7 +2046,7 @@ void CBR_iteration_loop(lame_internal_flags* gfc, const FLOAT pe[2][2], const FL
         max_bits = on_pe(gfc, pe, targ_bits, mean_bits, gr, gr);
 
         if (gfc->ov_enc.mode_ext == MPG_MD_MS_LR) {
-            ms_convert(&gfc->l3_side, gr);
+            ms_convert(gfc, gr);
             reduce_side(targ_bits, ms_ener_ratio[gr], mean_bits, max_bits);
         }
 

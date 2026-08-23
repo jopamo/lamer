@@ -24,6 +24,7 @@ typedef struct lamer_dsp_s {
     FLOAT (*sum_sq_f32)(FLOAT const* src, int n);
     FLOAT (*dot_f32)(FLOAT const* a, FLOAT const* b, int n);
     void (*window_mul_f32)(FLOAT* dst, FLOAT const* src, FLOAT const* win, int n);
+    void (*ms_convert_f32)(FLOAT* left, FLOAT* right, int n, FLOAT scale);
     void (*psy_attack_hpf_f32)(FLOAT* dst, FLOAT const* src, int n, FLOAT const* coef);
 
     /*

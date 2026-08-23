@@ -145,6 +145,24 @@ static void sse2_window_mul_f32(FLOAT* dst, FLOAT const* src, FLOAT const* win, 
     }
 }
 
+static void sse2_ms_convert_f32(FLOAT* left, FLOAT* right, int n, FLOAT scale) {
+    __m128 const scalev = _mm_set1_ps(scale);
+    int i = 0;
+
+    for (; i + 4 <= n; i += 4) {
+        __m128 const l = _mm_loadu_ps(left + i);
+        __m128 const r = _mm_loadu_ps(right + i);
+        _mm_storeu_ps(left + i, _mm_mul_ps(_mm_add_ps(l, r), scalev));
+        _mm_storeu_ps(right + i, _mm_mul_ps(_mm_sub_ps(l, r), scalev));
+    }
+    for (; i < n; ++i) {
+        FLOAT const l = left[i];
+        FLOAT const r = right[i];
+        left[i] = (l + r) * scale;
+        right[i] = (l - r) * scale;
+    }
+}
+
 static void sse2_psy_attack_hpf_f32(FLOAT* dst, FLOAT const* src, int n, FLOAT const* coef) {
     int i = 0;
 
@@ -357,6 +375,7 @@ void lamer_dsp_init_x86_sse2(lamer_dsp* dsp) {
     dsp->sum_sq_f32 = sse2_sum_sq_f32;
     dsp->dot_f32 = sse2_dot_f32;
     dsp->window_mul_f32 = sse2_window_mul_f32;
+    dsp->ms_convert_f32 = sse2_ms_convert_f32;
     dsp->psy_attack_hpf_f32 = sse2_psy_attack_hpf_f32;
     dsp->reconstructed_energy_f32 = sse2_reconstructed_energy_f32;
     if (sse2_experimental_quant_simd_enabled()) {

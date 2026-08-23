@@ -142,6 +142,24 @@ static void neon_window_mul_f32(FLOAT* dst, FLOAT const* src, FLOAT const* win, 
     }
 }
 
+static void neon_ms_convert_f32(FLOAT* left, FLOAT* right, int n, FLOAT scale) {
+    float32x4_t const scalev = vdupq_n_f32(scale);
+    int i = 0;
+
+    for (; i + 4 <= n; i += 4) {
+        float32x4_t const l = vld1q_f32(left + i);
+        float32x4_t const r = vld1q_f32(right + i);
+        vst1q_f32(left + i, vmulq_f32(vaddq_f32(l, r), scalev));
+        vst1q_f32(right + i, vmulq_f32(vsubq_f32(l, r), scalev));
+    }
+    for (; i < n; ++i) {
+        FLOAT const l = left[i];
+        FLOAT const r = right[i];
+        left[i] = (l + r) * scale;
+        right[i] = (l - r) * scale;
+    }
+}
+
 static void neon_psy_attack_hpf_f32(FLOAT* dst, FLOAT const* src, int n, FLOAT const* coef) {
     int i = 0;
 
@@ -329,6 +347,7 @@ void lamer_dsp_init_aarch64_neon(lamer_dsp* dsp) {
     dsp->sum_sq_f32 = neon_sum_sq_f32;
     dsp->dot_f32 = neon_dot_f32;
     dsp->window_mul_f32 = neon_window_mul_f32;
+    dsp->ms_convert_f32 = neon_ms_convert_f32;
     dsp->psy_attack_hpf_f32 = neon_psy_attack_hpf_f32;
     dsp->reconstructed_energy_f32 = neon_reconstructed_energy_f32;
     if (neon_experimental_quant_simd_enabled()) {

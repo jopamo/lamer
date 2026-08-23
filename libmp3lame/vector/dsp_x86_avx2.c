@@ -175,6 +175,25 @@ static void avx2_window_mul_f32(FLOAT* dst, FLOAT const* src, FLOAT const* win, 
     _mm256_zeroupper();
 }
 
+static void avx2_ms_convert_f32(FLOAT* left, FLOAT* right, int n, FLOAT scale) {
+    __m256 const scalev = _mm256_set1_ps(scale);
+    int i = 0;
+
+    for (; i + 8 <= n; i += 8) {
+        __m256 const l = _mm256_loadu_ps(left + i);
+        __m256 const r = _mm256_loadu_ps(right + i);
+        _mm256_storeu_ps(left + i, _mm256_mul_ps(_mm256_add_ps(l, r), scalev));
+        _mm256_storeu_ps(right + i, _mm256_mul_ps(_mm256_sub_ps(l, r), scalev));
+    }
+    for (; i < n; ++i) {
+        FLOAT const l = left[i];
+        FLOAT const r = right[i];
+        left[i] = (l + r) * scale;
+        right[i] = (l - r) * scale;
+    }
+    _mm256_zeroupper();
+}
+
 static void avx2_psy_attack_hpf_f32(FLOAT* dst, FLOAT const* src, int n, FLOAT const* coef) {
     int i = 0;
 
@@ -413,6 +432,7 @@ void lamer_dsp_init_x86_avx2(lamer_dsp* dsp) {
     dsp->sum_sq_f32 = avx2_sum_sq_f32;
     dsp->dot_f32 = avx2_dot_f32;
     dsp->window_mul_f32 = avx2_window_mul_f32;
+    dsp->ms_convert_f32 = avx2_ms_convert_f32;
     dsp->psy_attack_hpf_f32 = avx2_psy_attack_hpf_f32;
     dsp->reconstructed_energy_f32 = avx2_reconstructed_energy_f32;
     if (avx2_experimental_quant_simd_enabled()) {

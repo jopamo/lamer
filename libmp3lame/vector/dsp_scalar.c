@@ -80,6 +80,17 @@ static void scalar_window_mul_f32(FLOAT* dst, FLOAT const* src, FLOAT const* win
     }
 }
 
+static void scalar_ms_convert_f32(FLOAT* left, FLOAT* right, int n, FLOAT scale) {
+    int i;
+
+    for (i = 0; i < n; ++i) {
+        FLOAT const l = left[i];
+        FLOAT const r = right[i];
+        left[i] = (l + r) * scale;
+        right[i] = (l - r) * scale;
+    }
+}
+
 static void scalar_psy_attack_hpf_f32(FLOAT* dst, FLOAT const* src, int n, FLOAT const* coef) {
     int i;
 
@@ -201,6 +212,7 @@ void lamer_dsp_init_scalar(lamer_dsp* dsp) {
     dsp->sum_sq_f32 = scalar_sum_sq_f32;
     dsp->dot_f32 = scalar_dot_f32;
     dsp->window_mul_f32 = scalar_window_mul_f32;
+    dsp->ms_convert_f32 = scalar_ms_convert_f32;
     dsp->psy_attack_hpf_f32 = scalar_psy_attack_hpf_f32;
     dsp->reconstructed_energy_f32 = scalar_reconstructed_energy_f32;
     dsp->vbr_calc_sfb_noise_x34 = scalar_vbr_calc_sfb_noise_x34;
