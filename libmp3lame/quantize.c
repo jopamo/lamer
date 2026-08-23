@@ -1847,27 +1847,19 @@ static void calc_target_bits(lame_internal_flags* gfc, const FLOAT pe[2][2], FLO
     mean_bits /= (cfg->mode_gr * cfg->channels_out);
 
     /*
-       res_factor is the percentage of the target bitrate that should
-       be used on average.  the remaining bits are added to the
-       bitreservoir and used for difficult to encode frames.
-
-       Since we are tracking the average bitrate, we should adjust
-       res_factor "on the fly", increasing it if the average bitrate
-       is greater than the requested bitrate, and decreasing it
-       otherwise.  Reasonable ranges are from .9 to 1.0
-
-       Until we get the above suggestion working, we use the following
-       tuning:
-       compression ratio    res_factor
-       5.5  (256kbps)         1.0      no need for bitreservoir
-       11   (128kbps)         .93      7% held for reservoir
-
-       with linear interpolation for other values.
-
+     * Keep a compression-ratio baseline, then steer it from the current
+     * reservoir occupancy.  A full reservoir means the previous frames
+     * underspent their allowance, so hold back more bits; a depleted one
+     * can safely spend more on the current frame.
      */
     res_factor = .93 + .07 * (11.0 - cfg->compression_ratio) / (11.0 - 5.5);
-    if (res_factor < .90)
-        res_factor = .90;
+    if (gfc->sv_enc.ResvMax > 0) {
+        FLOAT const target_fill = 0.5 * gfc->sv_enc.ResvMax;
+        FLOAT const fill_error = (gfc->sv_enc.ResvSize - target_fill) / gfc->sv_enc.ResvMax;
+        res_factor -= 0.08 * fill_error;
+    }
+    if (res_factor < .88)
+        res_factor = .88;
     if (res_factor > 1.00)
         res_factor = 1.00;
 
