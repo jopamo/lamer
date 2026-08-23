@@ -1514,10 +1514,9 @@ static int VBR_old_prepare(lame_internal_flags* gfc,
 
 static void bitpressure_strategy(lame_internal_flags const* gfc, FLOAT l3_xmin[2][2][SFBMAX], const int min_bits[2][2], int max_bits[2][2], int used_bits, int available_bits) {
     SessionConfig_t const* const cfg = &gfc->cfg;
-    FLOAT const pressure = (FLOAT)used_bits / Max(available_bits, 1);
-    FLOAT const excess = Min(Max(pressure - 1.0, 0.0), 1.0);
-    FLOAT const mask_relax = 0.25 * excess;
-    FLOAT const bit_scale = Max(0.70, 1.0 - 0.50 * excess);
+    int const excess_bits = used_bits - available_bits;
+    int const pressure_percent = Min(excess_bits * 100 / Max(available_bits, 1), 100);
+    FLOAT const mask_relax = 0.0025 * pressure_percent;
     int gr, ch, sfb;
 
     for (gr = 0; gr < cfg->mode_gr; gr++) {
@@ -1543,7 +1542,7 @@ static void bitpressure_strategy(lame_internal_flags const* gfc, FLOAT l3_xmin[2
                 }
             }
 
-            max_bits[gr][ch] = Max(min_bits[gr][ch], (int)(bit_scale * max_bits[gr][ch]));
+            max_bits[gr][ch] = Max(min_bits[gr][ch], max_bits[gr][ch] * available_bits / used_bits);
         }
     }
 }
