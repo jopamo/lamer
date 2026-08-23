@@ -98,6 +98,20 @@ libm = cc.find_library('m', required : false)
 subdir('libmp3lame')
 
 install_headers('include/lame.h')
+install_headers('include/lame.h', subdir : 'lame')
+
+pkg = import('pkgconfig')
+foreach filebase : ['lame', 'libmp3lame']
+  pkg.generate(
+    libmp3lame,
+    name : 'Lamer',
+    filebase : filebase,
+    description : 'Lamer MP3 encoding library',
+    version : meson.project_version(),
+    extra_cflags : '-I${includedir}',
+  )
+endforeach
+
 install_data(
   ['README.md'],
   install_dir : join_paths(get_option('datadir'), 'doc', meson.project_name()),
