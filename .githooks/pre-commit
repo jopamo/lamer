@@ -22,6 +22,12 @@ cd "$root"
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
 
+if git cat-file -e :".clang-format" 2>/dev/null; then
+    git show ":.clang-format" >"$tmpdir/.clang-format"
+else
+    cp .clang-format "$tmpdir/.clang-format"
+fi
+
 for file in "${files[@]}"; do
     mode=$(git ls-files -s -- "$file" | awk 'NR == 1 { print $1 }')
     case "$mode" in
@@ -33,10 +39,10 @@ for file in "${files[@]}"; do
             ;;
     esac
 
-    extension=${file##*.}
-    staged_file=$(mktemp "$tmpdir/source.XXXXXX.$extension")
+    staged_file="$tmpdir/$file"
+    mkdir -p "$(dirname "$staged_file")"
     git show ":$file" >"$staged_file"
-    "$formatter" -i -assume-filename="$file" "$staged_file"
+    "$formatter" -style=file -i -assume-filename="$file" "$staged_file"
 
     blob=$(git hash-object -w "$staged_file")
     git update-index --add --cacheinfo "$mode,$blob,$file"

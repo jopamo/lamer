@@ -24,8 +24,8 @@
 
 #include "version.h"
 
-#include <assert.h>
 #include <stdio.h>
+#include <assert.h>
 
 #ifdef STDC_HEADERS
 #include <stdlib.h>
@@ -59,8 +59,8 @@ char *strchr(), *strrchr();
 #include <fcntl.h>
 #endif
 
-#include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
@@ -127,20 +127,16 @@ typedef FLOAT sample_t;
 
 #define dimension_of(array) (sizeof(array) / sizeof(array[0]))
 #define beyond(array) (array + dimension_of(array))
-#define compiletime_assert(expression)                                         \
-  enum { static_assert_##FILE##_##LINE = 1 / ((expression) ? 1 : 0) }
-#define lame_calloc(TYPE, COUNT) ((TYPE *)calloc(COUNT, sizeof(TYPE)))
-#define multiple_of(CHUNK, COUNT)                                              \
-  (((COUNT) < 1 || (CHUNK) < 1 || (COUNT) % (CHUNK) == 0)                      \
-       ? (COUNT)                                                               \
-       : ((COUNT) + (CHUNK) - (COUNT) % (CHUNK)))
+#define compiletime_assert(expression) enum { static_assert_##FILE##_##LINE = 1 / ((expression) ? 1 : 0) }
+#define lame_calloc(TYPE, COUNT) ((TYPE*)calloc(COUNT, sizeof(TYPE)))
+#define multiple_of(CHUNK, COUNT) (((COUNT) < 1 || (CHUNK) < 1 || (COUNT) % (CHUNK) == 0) ? (COUNT) : ((COUNT) + (CHUNK) - (COUNT) % (CHUNK)))
 
 static inline int lame_double_equal(double a, double b) {
-  double const abs_a = fabs(a);
-  double const abs_b = fabs(b);
-  double const scale = (abs_a > abs_b) ? abs_a : abs_b;
+    double const abs_a = fabs(a);
+    double const abs_b = fabs(b);
+    double const scale = (abs_a > abs_b) ? abs_a : abs_b;
 
-  return fabs(a - b) <= (scale * 1e-6);
+    return fabs(a - b) <= (scale * 1e-6);
 }
 
 #define EQ(a, b) lame_double_equal((double)(a), (double)(b))

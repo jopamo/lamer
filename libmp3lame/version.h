@@ -42,10 +42,8 @@
 
 #define PSY_MAJOR_VERSION 1 /* Major version number */
 #define PSY_MINOR_VERSION 0 /* Minor version number */
-#define PSY_ALPHA_VERSION                                                      \
-  0 /* Set number if this is an alpha version, otherwise zero */
-#define PSY_BETA_VERSION                                                       \
-  0 /* Set number if this is a beta version, otherwise zero */
+#define PSY_ALPHA_VERSION 0 /* Set number if this is an alpha version, otherwise zero */
+#define PSY_BETA_VERSION 0  /* Set number if this is a beta version, otherwise zero */
 
 #if LAME_ALPHA_VERSION
 #define LAME_PATCH_LEVEL_STRING " alpha " STR(LAME_PATCH_VERSION)
@@ -61,8 +59,7 @@
 #endif
 #endif
 
-#define LAME_VERSION_STRING                                                    \
-  STR(LAME_MAJOR_VERSION) "." STR(LAME_MINOR_VERSION) LAME_PATCH_LEVEL_STRING
+#define LAME_VERSION_STRING STR(LAME_MAJOR_VERSION) "." STR(LAME_MINOR_VERSION) LAME_PATCH_LEVEL_STRING
 
 #endif /* LAME_VERSION_H */
 

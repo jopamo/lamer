@@ -25,10 +25,10 @@
 #define HTN 34
 
 struct huffcodetab {
-  const unsigned int xlen;   /* max. x-index+   */
-  const unsigned int linmax; /* max number to be stored in linbits */
-  const uint16_t *table;     /* pointer to array[xlen][ylen]  */
-  const uint8_t *hlen;       /* pointer to array[xlen][ylen]  */
+    const unsigned int xlen;   /* max. x-index+   */
+    const unsigned int linmax; /* max number to be stored in linbits */
+    const uint16_t* table;     /* pointer to array[xlen][ylen]  */
+    const uint8_t* hlen;       /* pointer to array[xlen][ylen]  */
 };
 
 extern const struct huffcodetab ht[HTN];
