@@ -42,6 +42,7 @@ typedef enum vbr_mode_e {
     vbr_rh,
     vbr_abr,
     vbr_mtrh,
+    vbr_mt,                /* obsolete compatibility mode; maps to vbr_mtrh */
     vbr_max_indicator,     /* Don't use this! It's used for sanity checks.       */
     vbr_default = vbr_mtrh /* change this to change the default VBR mode of LAME */
 } vbr_mode;
@@ -353,6 +354,25 @@ int CDECL lame_get_VBR_max_bitrate_kbps(const lame_global_flags*);
 */
 int CDECL lame_set_VBR_hard_min(lame_global_flags*, int);
 int CDECL lame_get_VBR_hard_min(const lame_global_flags*);
+
+/********************************************************************
+ * ID3 and LAME tag compatibility
+ ***********************************************************************/
+void CDECL lame_set_write_id3tag_automatic(lame_global_flags*, int);
+
+void CDECL id3tag_genre_list(void (*handler)(int, const char*, void*), void*);
+void CDECL id3tag_init(lame_t);
+void CDECL id3tag_set_title(lame_t, const char*);
+void CDECL id3tag_set_artist(lame_t, const char*);
+void CDECL id3tag_set_album(lame_t, const char*);
+void CDECL id3tag_set_year(lame_t, const char*);
+void CDECL id3tag_set_comment(lame_t, const char*);
+int CDECL id3tag_set_track(lame_t, const char*);
+int CDECL id3tag_set_genre(lame_t, const char*);
+
+size_t CDECL lame_get_id3v1_tag(lame_t, unsigned char*, size_t);
+size_t CDECL lame_get_id3v2_tag(lame_t, unsigned char*, size_t);
+size_t CDECL lame_get_lametag_frame(const lame_global_flags*, unsigned char*, size_t);
 
 /********************************************************************
  * Filtering control

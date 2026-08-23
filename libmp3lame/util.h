@@ -515,6 +515,7 @@ struct lame_internal_flags {
     EncStateVar_t sv_enc; /* DATA FROM ENCODER.C */
     EncResult_t ov_enc;
     QntStateVar_t sv_qnt; /* DATA FROM QUANTIZE.C */
+    struct lamer_id3_state* id3;
     steady_tonal_stats_t* steady_tonal_stats;
 
     uint16_t _unused;

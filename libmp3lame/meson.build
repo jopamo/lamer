@@ -2,6 +2,7 @@ libmp3lame_sources = files(
   'bitstream.c',
   'encoder.c',
   'fft.c',
+  'id3.c',
   'lame.c',
   'lame_config.c',
   'lame_encode.c',

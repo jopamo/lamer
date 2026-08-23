@@ -94,6 +94,7 @@ void freegfc(lame_internal_flags* const gfc) { /* bit stream structure */
     if (gfc->sv_enc.in_buffer_1) {
         free(gfc->sv_enc.in_buffer_1);
     }
+    free(gfc->id3);
     free_global_data(gfc);
 
     free(gfc);

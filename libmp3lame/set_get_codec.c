@@ -198,6 +198,10 @@ int lame_get_exp_nspsytune(const lame_global_flags* gfp) {
 int lame_set_VBR(lame_global_flags* gfp, vbr_mode VBR) {
     if (is_lame_global_flags_valid(gfp)) {
         int vbr_q = VBR;
+        if (VBR == vbr_mt) {
+            VBR = vbr_mtrh;
+            vbr_q = VBR;
+        }
         if (0 > vbr_q || vbr_max_indicator <= vbr_q)
             return -1; /* Unknown VBR mode! */
         gfp->VBR = VBR;
