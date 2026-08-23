@@ -126,56 +126,6 @@ int CDECL lame_get_size_mp3buffer(const lame_global_flags* gfp) {
     return 0;
 }
 
-int lame_get_RadioGain(const lame_global_flags* gfp) {
-    if (is_lame_global_flags_valid(gfp)) {
-        lame_internal_flags const* const gfc = gfp->internal_flags;
-        if (is_lame_internal_flags_valid(gfc)) {
-            return gfc->ov_rpg.RadioGain;
-        }
-    }
-    return 0;
-}
-
-int lame_get_AudiophileGain(const lame_global_flags* gfp) {
-    if (is_lame_global_flags_valid(gfp)) {
-        lame_internal_flags const* const gfc = gfp->internal_flags;
-        if (is_lame_internal_flags_valid(gfc)) {
-            return 0;
-        }
-    }
-    return 0;
-}
-
-float lame_get_PeakSample(const lame_global_flags* gfp) {
-    if (is_lame_global_flags_valid(gfp)) {
-        lame_internal_flags const* const gfc = gfp->internal_flags;
-        if (is_lame_internal_flags_valid(gfc)) {
-            return (float)gfc->ov_rpg.PeakSample;
-        }
-    }
-    return 0;
-}
-
-int lame_get_noclipGainChange(const lame_global_flags* gfp) {
-    if (is_lame_global_flags_valid(gfp)) {
-        lame_internal_flags const* const gfc = gfp->internal_flags;
-        if (is_lame_internal_flags_valid(gfc)) {
-            return gfc->ov_rpg.noclipGainChange;
-        }
-    }
-    return 0;
-}
-
-float lame_get_noclipScale(const lame_global_flags* gfp) {
-    if (is_lame_global_flags_valid(gfp)) {
-        lame_internal_flags const* const gfc = gfp->internal_flags;
-        if (is_lame_internal_flags_valid(gfc)) {
-            return gfc->ov_rpg.noclipScale;
-        }
-    }
-    return 0;
-}
-
 /*
  * LAME's estimate of the total number of frames to be encoded.
  * Only valid if calling program set num_samples.
@@ -260,19 +210,6 @@ int lame_set_asm_optimizations(lame_global_flags* gfp, int optim, int mode) {
         }
     }
     return -1;
-}
-
-void lame_set_write_id3tag_automatic(lame_global_flags* gfp, int v) {
-    if (is_lame_global_flags_valid(gfp)) {
-        gfp->write_id3tag_automatic = v;
-    }
-}
-
-int lame_get_write_id3tag_automatic(lame_global_flags const* gfp) {
-    if (is_lame_global_flags_valid(gfp)) {
-        return gfp->write_id3tag_automatic;
-    }
-    return 1;
 }
 
 /*

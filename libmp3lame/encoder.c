@@ -40,7 +40,6 @@
 #include "psymodel.h"
 #include "lame-analysis.h"
 #include "bitstream.h"
-#include "VbrTag.h"
 #include "quantize.h"
 #include "quantize_pvt.h"
 
@@ -532,11 +531,7 @@ int lame_encode_mp3_frame(                          /* Output */
     (void)format_bitstream(gfc);
 
     /* copy mp3 bit buffer into array */
-    mp3count = copy_buffer(gfc, mp3buf, mp3buf_size, 1);
-
-    if (cfg->write_lame_tag) {
-        AddVbrFrame(gfc);
-    }
+    mp3count = copy_buffer(gfc, mp3buf, mp3buf_size);
 
     if (cfg->analysis && gfc->pinfo != NULL) {
         int framesize = 576 * cfg->mode_gr;

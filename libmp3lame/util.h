@@ -24,7 +24,6 @@
 #define LAME_UTIL_H
 
 #include "l3side.h"
-#include "id3tag.h"
 #include "lame_global_flags.h"
 #include "vector/lamer_dsp.h"
 
@@ -130,11 +129,6 @@ static inline ieee754_float32_t fast_log2(ieee754_float32_t x) {
 #define FAST_LOG_X(x, y) (log(x) * (y))
 #endif
 
-struct replaygain_data;
-#ifndef replaygain_data_defined
-#define replaygain_data_defined
-typedef struct replaygain_data replaygain_t;
-#endif
 struct plotting_data;
 #ifndef plotting_data_defined
 #define plotting_data_defined
@@ -166,19 +160,6 @@ typedef struct bit_stream_struc {
 
     /* format of file in rd mode (BINARY/ASCII) */
 } Bit_stream_struc;
-
-typedef struct {
-    int sum;  /* what we have seen so far */
-    int seen; /* how many frames we have seen in this chunk */
-    int want; /* how many frames we want to collect into one chunk */
-    int pos;  /* actual position in our bag */
-    int size; /* size of our bag */
-    int* bag; /* pointer to our bag */
-    unsigned int nVbrNumFrames;
-    unsigned long nBytesWritten;
-    /* VBR tag data */
-    unsigned int TotalFrameSize;
-} VBR_seek_info_t;
 
 /**
  *  ATH related stuff, if something new ATH related has to be added,
@@ -387,19 +368,6 @@ typedef struct {
 typedef struct steady_tonal_stats_s steady_tonal_stats_t;
 
 typedef struct {
-    replaygain_t* rgdata;
-    /* ReplayGain */
-} RpgStateVar_t;
-
-typedef struct {
-    FLOAT noclipScale; /* user-specified scale factor required for preventing
-                          clipping */
-    sample_t PeakSample;
-    int RadioGain;
-    int noclipGainChange; /* gain change required for preventing clipping */
-} RpgResult_t;
-
-typedef struct {
     int version; /* 0=MPEG-2/2.5  1=MPEG-1               */
     int samplerate_index;
     int sideinfo_len;
@@ -454,13 +422,10 @@ typedef struct {
     int enforce_min_bitrate; /* strictly enforce VBR_min_bitrate normaly, it will
                                 be violated for analog silence */
 
-    int findReplayGain; /* find the RG value? default=0       */
-    int findPeakSample;
     int analysis;
     int disable_reservoir;
     int buffer_constraint; /* enforce ISO spec as much as possible   */
     int free_format;
-    int write_lame_tag; /* add Xing VBR tag?                           */
 
     int error_protection; /* use 2 bytes per frame for a CRC checksum. default=0
                            */
@@ -552,13 +517,6 @@ struct lame_internal_flags {
     QntStateVar_t sv_qnt; /* DATA FROM QUANTIZE.C */
     steady_tonal_stats_t* steady_tonal_stats;
 
-    RpgStateVar_t sv_rpg;
-    RpgResult_t ov_rpg;
-
-    /* optional ID3 tags, used in id3tag.c  */
-    struct id3tag_spec tag_spec;
-    uint16_t nMusicCRC;
-
     uint16_t _unused;
 
     /* CPU features */
@@ -570,8 +528,6 @@ struct lame_internal_flags {
         unsigned int SSE2 : 1;      /* Pentium 4, K8             */
         unsigned int _unused : 28;
     } CPU_features;
-
-    VBR_seek_info_t VBR_seek_table; /* used for Xing VBR header */
 
     ATH_t* ATH; /* all ATH related stuff */
 
@@ -601,7 +557,6 @@ typedef struct lame_internal_flags lame_internal_flags;
  *
  ***********************************************************************/
 void freegfc(lame_internal_flags* const gfc);
-void free_id3tag(lame_internal_flags* const gfc);
 extern int BitrateIndex(int, int, int);
 extern int FindNearestBitrate(int, int, int);
 extern int map2MP3Frequency(int freq);

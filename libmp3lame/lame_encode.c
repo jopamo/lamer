@@ -35,7 +35,6 @@
 #include "encoder.h"
 #include "util.h"
 #include "lame_global_flags.h"
-#include "gain_analysis.h"
 #include "bitstream.h"
 
 #include "lame_internal.h"
@@ -107,7 +106,7 @@ static int lame_encode_buffer_sample_t(lame_internal_flags* gfc, int nsamples, u
     /* copy out any tags that may have been written into bitstream */
     { /* if user specifed buffer size = 0, dont check size */
         int const buf_size = mp3buf_size == 0 ? INT_MAX : mp3buf_size;
-        mp3out = copy_buffer(gfc, mp3buf, buf_size, 0);
+        mp3out = copy_buffer(gfc, mp3buf, buf_size);
     }
     if (mp3out < 0)
         return mp3out; /* not enough buffer space */
@@ -132,11 +131,6 @@ static int lame_encode_buffer_sample_t(lame_internal_flags* gfc, int nsamples, u
         in_buffer_ptr[1] = in_buffer[1];
         /* copy in new samples into mfbuf, with resampling */
         fill_buffer(gfc, mfbuf, &in_buffer_ptr[0], nsamples, &n_in, &n_out);
-
-        /* compute ReplayGain of resampled input if requested */
-        if (cfg->findReplayGain)
-            if (AnalyzeSamples(gfc->sv_rpg.rgdata, &mfbuf[0][esv->mf_size], &mfbuf[1][esv->mf_size], n_out, cfg->channels_out) == GAIN_ANALYSIS_ERROR)
-                return -6;
 
         /* update in_buffer counters */
         nsamples -= n_in;

@@ -36,7 +36,6 @@
 #include "tables.h"
 #include "quantize_pvt.h"
 #include "lame_global_flags.h"
-#include "VbrTag.h"
 #include "bitstream.h"
 
 /* unsigned int is at least this large:  */
@@ -895,26 +894,9 @@ static int do_copy_buffer(lame_internal_flags* gfc, unsigned char* buffer, int s
 }
 
 /* copy data out of the internal MP3 bit buffer into a user supplied
-   unsigned char buffer.
-
-   mp3data=0      indicates data in buffer is an id3tags and VBR tags
-   mp3data=1      data is real mp3 frame data.
-
-
-*/
-int copy_buffer(lame_internal_flags* gfc, unsigned char* buffer, int size, int mp3data) {
-    int const minimum = do_copy_buffer(gfc, buffer, size);
-    if (minimum > 0 && mp3data) {
-        UpdateMusicCRC(&gfc->nMusicCRC, buffer, minimum);
-
-        /** sum number of bytes belonging to the mp3 stream
-         *  this info will be written into the Xing/LAME header for seeking
-         */
-        gfc->VBR_seek_table.nBytesWritten += minimum;
-
-        return minimum;
-    } /* if (mp3data) */
-    return minimum;
+   unsigned char buffer. */
+int copy_buffer(lame_internal_flags* gfc, unsigned char* buffer, int size) {
+    return do_copy_buffer(gfc, buffer, size);
 }
 
 void init_bit_stream_w(lame_internal_flags* gfc) {

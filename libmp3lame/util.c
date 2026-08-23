@@ -44,49 +44,6 @@
  *  Global Function Definitions
  *
  ***********************************************************************/
-/*empty and close mallocs in gfc */
-
-void free_id3tag(lame_internal_flags* const gfc) {
-    gfc->tag_spec.language[0] = 0;
-    if (gfc->tag_spec.title != 0) {
-        free(gfc->tag_spec.title);
-        gfc->tag_spec.title = 0;
-    }
-    if (gfc->tag_spec.artist != 0) {
-        free(gfc->tag_spec.artist);
-        gfc->tag_spec.artist = 0;
-    }
-    if (gfc->tag_spec.album != 0) {
-        free(gfc->tag_spec.album);
-        gfc->tag_spec.album = 0;
-    }
-    if (gfc->tag_spec.comment != 0) {
-        free(gfc->tag_spec.comment);
-        gfc->tag_spec.comment = 0;
-    }
-
-    if (gfc->tag_spec.albumart != 0) {
-        free(gfc->tag_spec.albumart);
-        gfc->tag_spec.albumart = 0;
-        gfc->tag_spec.albumart_size = 0;
-        gfc->tag_spec.albumart_mimetype = MIMETYPE_NONE;
-    }
-    if (gfc->tag_spec.v2_head != 0) {
-        FrameDataNode* node = gfc->tag_spec.v2_head;
-        do {
-            void* p = node->dsc.ptr.b;
-            void* q = node->txt.ptr.b;
-            void* r = node;
-            node = node->nxt;
-            free(p);
-            free(q);
-            free(r);
-        } while (node != 0);
-        gfc->tag_spec.v2_head = 0;
-        gfc->tag_spec.v2_tail = 0;
-    }
-}
-
 static void free_global_data(lame_internal_flags* gfc) {
     if (gfc && gfc->cd_psy) {
         if (gfc->cd_psy->l.s3) {
@@ -127,16 +84,8 @@ void freegfc(lame_internal_flags* const gfc) { /* bit stream structure */
         gfc->bs.buf = NULL;
     }
 
-    if (gfc->VBR_seek_table.bag) {
-        free(gfc->VBR_seek_table.bag);
-        gfc->VBR_seek_table.bag = NULL;
-        gfc->VBR_seek_table.size = 0;
-    }
     if (gfc->ATH) {
         free(gfc->ATH);
-    }
-    if (gfc->sv_rpg.rgdata) {
-        free(gfc->sv_rpg.rgdata);
     }
     steady_tonal_stats_free(gfc);
     if (gfc->sv_enc.in_buffer_0) {
@@ -145,8 +94,6 @@ void freegfc(lame_internal_flags* const gfc) { /* bit stream structure */
     if (gfc->sv_enc.in_buffer_1) {
         free(gfc->sv_enc.in_buffer_1);
     }
-    free_id3tag(gfc);
-
     free_global_data(gfc);
 
     free(gfc);

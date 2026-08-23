@@ -2,7 +2,7 @@
 /*
  * LAME MP3 encoding engine
  *
- * Stream flushing, tags, and encoder teardown.
+ * Stream flushing and encoder teardown.
  *
  * Copyright (c) 1999-2000 Mark Taylor
  * Copyright (c) 2000-2005 Takehiro Tominaga
@@ -35,40 +35,10 @@
 #include "encoder.h"
 #include "util.h"
 #include "lame_global_flags.h"
-#include "gain_analysis.h"
 #include "bitstream.h"
 #include "steadyprotect.h"
-#include "VbrTag.h"
-#include "id3tag.h"
 
 #include "lame_internal.h"
-
-static void save_gain_values(lame_internal_flags* gfc) {
-    SessionConfig_t const* const cfg = &gfc->cfg;
-    RpgStateVar_t const* const rsv = &gfc->sv_rpg;
-    RpgResult_t* const rov = &gfc->ov_rpg;
-    /* save the ReplayGain value */
-    if (cfg->findReplayGain) {
-        FLOAT const RadioGain = (FLOAT)GetTitleGain(rsv->rgdata);
-        if (NEQ(RadioGain, GAIN_NOT_ENOUGH_SAMPLES)) {
-            rov->RadioGain = (int)floor(RadioGain * 10.0 + 0.5); /* round to nearest */
-        }
-        else {
-            rov->RadioGain = 0;
-        }
-    }
-
-    /* find the gain and scale change required for no clipping */
-    if (cfg->findPeakSample) {
-        rov->noclipGainChange = (int)ceil(log10(rov->PeakSample / 32767.0) * 20.0 * 10.0); /* round up */
-
-        if (rov->noclipGainChange > 0) {                                              /* clipping occurs */
-            rov->noclipScale = floor((32767.0f / rov->PeakSample) * 100.0f) / 100.0f; /* round down */
-        }
-        else /* no clipping */
-            rov->noclipScale = -1.0f;
-    }
-}
 
 /*****************************************************************
  Flush mp3 buffer, pad with ancillary data so last frame is complete.
@@ -88,33 +58,22 @@ int lame_encode_flush_nogap(lame_global_flags* gfp, unsigned char* mp3buffer, in
             /* if user specifed buffer size = 0, dont check size */
             if (mp3buffer_size == 0)
                 mp3buffer_size = INT_MAX;
-            rc = copy_buffer(gfc, mp3buffer, mp3buffer_size, 1);
-            save_gain_values(gfc);
+            rc = copy_buffer(gfc, mp3buffer, mp3buffer_size);
         }
     }
     return rc;
 }
 
-/* called by lame_init_params.  You can also call this after flush_nogap
-   if you want to write new id3v2 and Xing VBR tags into the bitstream */
+/* called by lame_init_params. You can also call this after flush_nogap. */
 int lame_init_bitstream(lame_global_flags* gfp) {
     if (is_lame_global_flags_valid(gfp)) {
         lame_internal_flags* const gfc = gfp->internal_flags;
         if (gfc != 0) {
             gfc->ov_enc.frame_number = 0;
 
-            if (gfp->write_id3tag_automatic) {
-                (void)id3tag_write_v2(gfp);
-            }
             /* initialize optional histogram data */
             memset(gfc->ov_enc.bitrate_channelmode_hist, 0, sizeof(gfc->ov_enc.bitrate_channelmode_hist));
             memset(gfc->ov_enc.bitrate_blocktype_hist, 0, sizeof(gfc->ov_enc.bitrate_blocktype_hist));
-
-            gfc->ov_rpg.PeakSample = 0.0;
-
-            /* Write initial VBR Header to bitstream and init VBR data */
-            if (gfc->cfg.write_lame_tag)
-                (void)InitVbrTag(gfp);
 
             return 0;
         }
@@ -146,7 +105,7 @@ static int calc_mp3buffer_size_remaining(int mp3buffer_size, int mp3count) {
 
 /*****************************************************************/
 /* flush internal PCM sample buffers, then mp3 buffers           */
-/* then write id3 v1 tags into bitstream.                        */
+/* then return the encoded bytes.                                */
 /*****************************************************************/
 
 int lame_encode_flush(lame_global_flags* gfp, unsigned char* mp3buffer, int mp3buffer_size) {
@@ -243,30 +202,13 @@ int lame_encode_flush(lame_global_flags* gfp, unsigned char* mp3buffer, int mp3b
 
     /* mp3 related stuff.  bit buffer might still contain some mp3 data */
     flush_bitstream(gfc);
-    imp3 = copy_buffer(gfc, mp3buffer, mp3buffer_size_remaining, 1);
-    save_gain_values(gfc);
+    imp3 = copy_buffer(gfc, mp3buffer, mp3buffer_size_remaining);
     if (imp3 < 0) {
         /* some type of fatal error */
         return imp3;
     }
-    mp3buffer += imp3;
     mp3count += imp3;
-    mp3buffer_size_remaining = mp3buffer_size - mp3count;
-    /* if user specifed buffer size = 0, dont check size */
-    if (mp3buffer_size == 0)
-        mp3buffer_size_remaining = INT_MAX;
 
-    if (gfp->write_id3tag_automatic) {
-        /* write a id3 tag to the bitstream */
-        (void)id3tag_write_v1(gfp);
-
-        imp3 = copy_buffer(gfc, mp3buffer, mp3buffer_size_remaining, 0);
-
-        if (imp3 < 0) {
-            return imp3;
-        }
-        mp3count += imp3;
-    }
     return mp3count;
 }
 
@@ -300,46 +242,4 @@ int lame_close(lame_global_flags* gfp) {
         }
     }
     return ret;
-}
-
-/*****************************************************************/
-/* write VBR Xing header, and ID3 version 1 tag, if asked for    */
-/*****************************************************************/
-void lame_mp3_tags_fid(lame_global_flags* gfp, FILE* fpStream);
-
-void lame_mp3_tags_fid(lame_global_flags* gfp, FILE* fpStream) {
-    lame_internal_flags* gfc;
-    SessionConfig_t const* cfg;
-    if (!is_lame_global_flags_valid(gfp)) {
-        return;
-    }
-    gfc = gfp->internal_flags;
-    if (!is_lame_internal_flags_valid(gfc)) {
-        return;
-    }
-    cfg = &gfc->cfg;
-    if (!cfg->write_lame_tag) {
-        return;
-    }
-    /* Write Xing header again */
-    if (fpStream && !fseek(fpStream, 0, SEEK_SET)) {
-        int rc = PutVbrTag(gfp, fpStream);
-        switch (rc) {
-            default:
-                /* OK */
-                break;
-
-            case -1:
-                ERRORF(gfc, "Error: could not update LAME tag.\n");
-                break;
-
-            case -2:
-                ERRORF(gfc, "Error: could not update LAME tag, file not seekable.\n");
-                break;
-
-            case -3:
-                ERRORF(gfc, "Error: could not update LAME tag, file not readable.\n");
-                break;
-        }
-    }
 }

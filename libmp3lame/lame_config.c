@@ -35,7 +35,6 @@
 #include "encoder.h"
 #include "util.h"
 #include "lame_global_flags.h"
-#include "gain_analysis.h"
 #include "bitstream.h"
 #include "quantize_pvt.h"
 #include "set_get.h"
@@ -478,12 +477,9 @@ static double linear_int(double a, double b, double m) {
  *   set allow_diff_short based on mode
  *   select lowpass filter based on compression ratio & mode
  *   set the bitrate index, and min/max bitrates for VBR modes
- *   disable VBR tag if it is not appropriate
  *   initialize the bitstream
  *   initialize scalefac_band data
  *   set sideinfo_len (based on channels, CRC, out_samplerate)
- *   write an id3v2 tag into the bitstream
- *   write VBR tag into the bitstream
  *   set mpeg1/2 flag
  *   estimate the number of frames (based on a lot of data)
  *
@@ -533,12 +529,6 @@ int lame_init_params(lame_global_flags* gfp) {
 
     cfg->enforce_min_bitrate = gfp->VBR_hard_min;
     cfg->analysis = gfp->analysis;
-    if (cfg->analysis)
-        gfp->write_lame_tag = 0;
-
-    /* some file options not allowed if output is: not specified or stdout */
-    if (gfc->pinfo != NULL)
-        gfp->write_lame_tag = 0; /* disable Xing VBR tag */
 
     /* report functions */
     gfc->report_msg = gfp->report.msgf;
@@ -1039,7 +1029,6 @@ int lame_init_params(lame_global_flags* gfp) {
     }
 
     cfg->preset = gfp->preset;
-    cfg->write_lame_tag = gfp->write_lame_tag;
     gfc->sv_qnt.substep_shaping = gfp->substep_shaping;
     cfg->noise_shaping = gfp->noise_shaping;
     cfg->subblock_gain = gfp->subblock_gain;
@@ -1195,17 +1184,6 @@ int lame_init_params(lame_global_flags* gfp) {
     (void)psymodel_init(gfp);
 
     cfg->buffer_constraint = get_max_frame_buffer_size_by_constraint(cfg, gfp->strict_ISO);
-
-    cfg->findReplayGain = gfp->findReplayGain;
-    if (cfg->findReplayGain) {
-        if (InitGainAnalysis(gfc->sv_rpg.rgdata, cfg->samplerate_out) == INIT_GAIN_ANALYSIS_ERROR) {
-            /* Actually this never happens, our samplerates are the ones RG accepts!
-             * But just in case, turn RG off
-             */
-            assert(0);
-            cfg->findReplayGain = 0;
-        }
-    }
 
     /* updating lame internal flags finished successful */
     gfc->lame_init_params_successful = 1;

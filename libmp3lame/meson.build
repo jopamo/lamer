@@ -1,10 +1,7 @@
 libmp3lame_sources = files(
-  'VbrTag.c',
   'bitstream.c',
   'encoder.c',
   'fft.c',
-  'gain_analysis.c',
-  'id3tag.c',
   'lame.c',
   'lame_config.c',
   'lame_encode.c',

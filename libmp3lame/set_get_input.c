@@ -208,17 +208,11 @@ int lame_get_analysis(const lame_global_flags* gfp) {
     return 0;
 }
 
-/* write a Xing VBR header frame */
+/* Compatibility no-op for FFmpeg's libmp3lame wrapper. */
 int lame_set_bWriteVbrTag(lame_global_flags* gfp, int bWriteVbrTag) {
     if (is_lame_global_flags_valid(gfp)) {
-        /* default = 1 (on) for VBR/ABR modes, 0 (off) for CBR mode */
-
-        /* enforce disable/enable meaning, if we need more than two values
-           we need to switch to an enum to have an apropriate representation
-           of the possible meanings of the value */
         if (0 > bWriteVbrTag || 1 < bWriteVbrTag)
             return -1;
-        gfp->write_lame_tag = bWriteVbrTag;
         return 0;
     }
     return -1;
@@ -226,8 +220,7 @@ int lame_set_bWriteVbrTag(lame_global_flags* gfp, int bWriteVbrTag) {
 
 int lame_get_bWriteVbrTag(const lame_global_flags* gfp) {
     if (is_lame_global_flags_valid(gfp)) {
-        assert(0 <= gfp->write_lame_tag && 1 >= gfp->write_lame_tag);
-        return gfp->write_lame_tag;
+        return 0;
     }
     return 0;
 }
@@ -332,30 +325,6 @@ int lame_get_free_format(const lame_global_flags* gfp) {
     if (is_lame_global_flags_valid(gfp)) {
         assert(0 <= gfp->free_format && 1 >= gfp->free_format);
         return gfp->free_format;
-    }
-    return 0;
-}
-
-/* Perform ReplayGain analysis */
-int lame_set_findReplayGain(lame_global_flags* gfp, int findReplayGain) {
-    if (is_lame_global_flags_valid(gfp)) {
-        /* default = 0 (disabled) */
-
-        /* enforce disable/enable meaning, if we need more than two values
-           we need to switch to an enum to have an apropriate representation
-           of the possible meanings of the value */
-        if (0 > findReplayGain || 1 < findReplayGain)
-            return -1;
-        gfp->findReplayGain = findReplayGain;
-        return 0;
-    }
-    return -1;
-}
-
-int lame_get_findReplayGain(const lame_global_flags* gfp) {
-    if (is_lame_global_flags_valid(gfp)) {
-        assert(0 <= gfp->findReplayGain && 1 >= gfp->findReplayGain);
-        return gfp->findReplayGain;
     }
     return 0;
 }

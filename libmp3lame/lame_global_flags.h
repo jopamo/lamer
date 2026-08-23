@@ -43,15 +43,12 @@ struct lame_global_struct {
                                   amount before encoding                      */
 
     /* general control params */
-    int analysis;               /* collect data for a MP3 frame analyzer?      */
-    int write_lame_tag;         /* add Xing VBR tag?                           */
-    int quality;                /* quality setting 0=best,  9=worst  default=5 */
-    MPEG_mode mode;             /* see enum in lame.h
-                                   default = LAME picks best value             */
-    int force_ms;               /* force M/S mode.  requires mode=1            */
-    int free_format;            /* use free format? default=0                  */
-    int findReplayGain;         /* find the RG value? default=0       */
-    int write_id3tag_automatic; /* 1 (default) writes ID3 tags, 0 not */
+    int analysis;    /* collect data for a MP3 frame analyzer?      */
+    int quality;     /* quality setting 0=best,  9=worst  default=5 */
+    MPEG_mode mode;  /* see enum in lame.h
+                        default = LAME picks best value             */
+    int force_ms;    /* force M/S mode.  requires mode=1            */
+    int free_format; /* use free format? default=0                  */
 
     int nogap_total;
     int nogap_current;

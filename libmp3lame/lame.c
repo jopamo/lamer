@@ -36,7 +36,6 @@
 #include "encoder.h"
 #include "util.h"
 #include "lame_global_flags.h"
-#include "gain_analysis.h"
 #include "version.h"
 #include "tables.h"
 
@@ -278,8 +277,6 @@ void lame_print_internals(const lame_global_flags* gfp) {
             MSGF(gfc, "\t ?? oops, some new one ?? \n");
             break;
     }
-    if (cfg->write_lame_tag)
-        MSGF(gfc, "\tusing LAME Tag\n");
     MSGF(gfc, "\t...\n");
 
     /*  everything controlling psychoacoustic settings, like ATH, etc.
@@ -349,9 +346,6 @@ static int lame_init_internal_flags(lame_internal_flags* gfc) {
 
     gfc->cfg.vbr_min_bitrate_index = 1;  /* not  0 ????? */
     gfc->cfg.vbr_max_bitrate_index = 13; /* not 14 ????? */
-    gfc->cfg.findReplayGain = 0;
-    gfc->cfg.findPeakSample = 0;
-
     gfc->sv_qnt.OldValue[0] = 180;
     gfc->sv_qnt.OldValue[1] = 180;
     gfc->sv_qnt.CurrentStep[0] = 4;
@@ -373,18 +367,9 @@ static int lame_init_internal_flags(lame_internal_flags* gfc) {
     gfc->ov_enc.encoder_padding = 0;
     gfc->ov_enc.encoder_delay = ENCDELAY;
 
-    gfc->ov_rpg.RadioGain = 0;
-    gfc->ov_rpg.noclipGainChange = 0;
-    gfc->ov_rpg.noclipScale = -1.0;
-
     gfc->ATH = lame_calloc(ATH_t, 1);
     if (NULL == gfc->ATH)
         return -2; /* maybe error codes should be enumerated in lame.h ?? */
-
-    gfc->sv_rpg.rgdata = lame_calloc(replaygain_t, 1);
-    if (NULL == gfc->sv_rpg.rgdata) {
-        return -2;
-    }
     return 0;
 }
 
@@ -410,7 +395,6 @@ static int lame_init_defaults(lame_global_flags* gfp) {
     gfp->num_channels = 2;
     gfp->num_samples = MAX_U_32_NUM;
 
-    gfp->write_lame_tag = 1;
     gfp->quality = -1;
     gfp->short_blocks = short_block_not_set;
     gfp->subblock_gain = -1;
@@ -448,14 +432,11 @@ static int lame_init_defaults(lame_global_flags* gfp) {
     gfp->useTemporal = -1;
     gfp->interChRatio = -1;
 
-    gfp->findReplayGain = 0;
     gfp->asm_optimizations.mmx = 1;
     gfp->asm_optimizations.amd3dnow = 1;
     gfp->asm_optimizations.sse = 1;
 
     gfp->preset = 0;
-
-    gfp->write_id3tag_automatic = 1;
 
     gfp->report.debugf = &lame_report_def;
     gfp->report.errorf = &lame_report_def;

@@ -190,15 +190,8 @@ static int validate_mp3_file(char const* path) {
     }
     fclose(file);
 
-    if (size >= 10 && memcmp(bytes, "ID3", 3) == 0) {
-        size_t tag_size = ((size_t)(bytes[6] & 0x7f) << 21) | ((size_t)(bytes[7] & 0x7f) << 14) | ((size_t)(bytes[8] & 0x7f) << 7) | (size_t)(bytes[9] & 0x7f);
-        offset = 10 + tag_size + ((bytes[5] & 0x10) ? 10 : 0);
-    }
-
     while (offset < size) {
         size_t length;
-        if (size - offset >= 128 && memcmp(bytes + offset, "TAG", 3) == 0)
-            break;
         length = mp3_frame_size(bytes + offset, size - offset);
         if (!length) {
             free(bytes);
