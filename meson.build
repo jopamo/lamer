@@ -101,16 +101,21 @@ install_headers('include/lame.h')
 install_headers('include/lame.h', subdir : 'lame')
 
 pkg = import('pkgconfig')
-foreach filebase : ['lame', 'libmp3lame']
-  pkg.generate(
-    libmp3lame,
-    name : 'Lamer',
-    filebase : filebase,
-    description : 'Lamer MP3 encoding library',
-    version : meson.project_version(),
-    extra_cflags : '-I${includedir}',
-  )
-endforeach
+pkg.generate(
+  libmp3lame,
+  name : 'Lamer',
+  filebase : 'lame',
+  description : 'Lamer MP3 encoding library',
+  version : meson.project_version(),
+  extra_cflags : '-I${includedir}',
+)
+pkg.generate(
+  name : 'Lamer',
+  filebase : 'libmp3lame',
+  description : 'Lamer MP3 encoding library',
+  version : meson.project_version(),
+  requires : 'lame',
+)
 
 install_data(
   ['README.md'],
