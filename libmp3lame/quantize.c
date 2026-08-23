@@ -317,7 +317,7 @@ static void init_outer_loop(lame_internal_flags const* gfc, gr_info* const cod_i
 
 typedef enum { BINSEARCH_NONE, BINSEARCH_UP, BINSEARCH_DOWN } binsearchDirection_t;
 
-static int bin_search_StepSize(lame_internal_flags* const gfc, gr_info* const cod_info, int desired_rate, const int ch, const FLOAT xrpow[576]) {
+static int bin_search_StepSize_legacy(lame_internal_flags* const gfc, gr_info* const cod_info, int desired_rate, const int ch, const FLOAT xrpow[576]) {
     int nBits;
     int CurrentStep = gfc->sv_qnt.CurrentStep[ch];
     int flag_GoneOver = 0;
@@ -377,6 +377,142 @@ static int bin_search_StepSize(lame_internal_flags* const gfc, gr_info* const co
     cod_info->part2_3_length = nBits;
     return nBits;
 }
+
+#define GAIN_SEARCH_PROBES 24
+
+typedef struct {
+    int gain;
+    int bits;
+} gain_search_probe_t;
+
+static int gain_search_probe(lame_internal_flags* const gfc,
+                             gr_info* const cod_info,
+                             const FLOAT xrpow[576],
+                             gain_search_probe_t probes[GAIN_SEARCH_PROBES],
+                             int* const probe_count,
+                             int gain,
+                             int* const monotonic) {
+    int i;
+    int bits;
+
+    for (i = 0; i < *probe_count; i++) {
+        if (probes[i].gain == gain)
+            return probes[i].bits;
+    }
+
+    if (*probe_count >= GAIN_SEARCH_PROBES) {
+        *monotonic = 0;
+        return 0;
+    }
+
+    cod_info->global_gain = gain;
+    bits = count_bits(gfc, xrpow, cod_info, 0);
+    for (i = 0; i < *probe_count; i++) {
+        if ((gain > probes[i].gain && bits > probes[i].bits) || (gain < probes[i].gain && bits < probes[i].bits)) {
+            *monotonic = 0;
+            break;
+        }
+    }
+
+    probes[*probe_count].gain = gain;
+    probes[*probe_count].bits = bits;
+    (*probe_count)++;
+    return bits;
+}
+
+/*
+ * Find the lowest global_gain whose quantization fits the available bits.
+ *
+ * count_bits() is expected to be non-increasing as global_gain rises.  The
+ * previous-frame value supplies a seed; exponential bracketing followed by
+ * a lower-bound search avoids walking one gain step at a time.  The legacy
+ * search remains the fail-safe for an exceptional non-monotonic sequence.
+ */
+static int bin_search_StepSize(lame_internal_flags* const gfc, gr_info* const cod_info, int desired_rate, const int ch, const FLOAT xrpow[576]) {
+    gain_search_probe_t probes[GAIN_SEARCH_PROBES];
+    int probe_count = 0;
+    int const target_bits = desired_rate - cod_info->part2_length;
+    int const start = Min(Max(gfc->sv_qnt.OldValue[ch], 0), 255);
+    int const initial_step = Max(gfc->sv_qnt.CurrentStep[ch], 1);
+    int lo_bad = -1;
+    int hi_good = 256;
+    int nBits;
+    int monotonic = 1;
+
+    nBits = gain_search_probe(gfc, cod_info, xrpow, probes, &probe_count, start, &monotonic);
+    if (!monotonic)
+        return bin_search_StepSize_legacy(gfc, cod_info, desired_rate, ch, xrpow);
+
+    if (nBits <= target_bits) {
+        int step = initial_step;
+        hi_good = start;
+
+        while (hi_good > 0) {
+            int const candidate = Max(0, hi_good - step);
+            nBits = gain_search_probe(gfc, cod_info, xrpow, probes, &probe_count, candidate, &monotonic);
+            if (!monotonic)
+                return bin_search_StepSize_legacy(gfc, cod_info, desired_rate, ch, xrpow);
+            if (nBits > target_bits) {
+                lo_bad = candidate;
+                break;
+            }
+
+            hi_good = candidate;
+            step = Min(step << 1, 256);
+        }
+    }
+    else {
+        int step = initial_step;
+        lo_bad = start;
+
+        while (lo_bad < 255) {
+            int const candidate = Min(255, lo_bad + step);
+            nBits = gain_search_probe(gfc, cod_info, xrpow, probes, &probe_count, candidate, &monotonic);
+            if (!monotonic)
+                return bin_search_StepSize_legacy(gfc, cod_info, desired_rate, ch, xrpow);
+            if (nBits <= target_bits) {
+                hi_good = candidate;
+                break;
+            }
+
+            lo_bad = candidate;
+            step = Min(step << 1, 256);
+        }
+    }
+
+    if (hi_good < 256) {
+        while (hi_good - lo_bad > 1) {
+            int const candidate = lo_bad + (hi_good - lo_bad) / 2;
+            nBits = gain_search_probe(gfc, cod_info, xrpow, probes, &probe_count, candidate, &monotonic);
+            if (!monotonic)
+                return bin_search_StepSize_legacy(gfc, cod_info, desired_rate, ch, xrpow);
+            if (nBits <= target_bits)
+                hi_good = candidate;
+            else
+                lo_bad = candidate;
+        }
+    }
+    else {
+        hi_good = 255;
+    }
+
+    if (!monotonic)
+        return bin_search_StepSize_legacy(gfc, cod_info, desired_rate, ch, xrpow);
+
+    cod_info->global_gain = hi_good;
+    /*
+     * The probes are only search observations.  Re-run the selected gain so
+     * count_bits() leaves cod_info->l3_enc and the Huffman fields committed
+     * for the caller, just like the legacy final walk did.
+     */
+    nBits = count_bits(gfc, xrpow, cod_info, 0);
+    gfc->sv_qnt.CurrentStep[ch] = (start - cod_info->global_gain >= 4) ? 4 : 2;
+    gfc->sv_qnt.OldValue[ch] = cod_info->global_gain;
+    cod_info->part2_3_length = nBits;
+    return nBits;
+}
+
+#undef GAIN_SEARCH_PROBES
 
 /************************************************************************
  *
