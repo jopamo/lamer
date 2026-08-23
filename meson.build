@@ -107,7 +107,6 @@ pkg.generate(
   filebase : 'lame',
   description : 'Lamer MP3 encoding library',
   version : meson.project_version(),
-  extra_cflags : '-I${includedir}',
 )
 pkg.generate(
   name : 'Lamer',
