@@ -523,13 +523,79 @@ static int bin_search_StepSize(lame_internal_flags* const gfc, gr_info* const co
  *  trancate smaller nubmers into 0 as long as the noise threshold is allowed.
  *
  ************************************************************************/
-static int floatcompare(const void* v1, const void* v2) {
-    const FLOAT *const a = v1, *const b = v2;
-    if (*a > *b)
-        return 1;
-    if (*a < *b)
-        return -1;
-    return 0;
+static FLOAT median_float(FLOAT a, FLOAT b, FLOAT c) {
+    if (a < b) {
+        if (b < c)
+            return b;
+        return a < c ? c : a;
+    }
+    if (a < c)
+        return a;
+    return b < c ? c : b;
+}
+
+/*
+ * Find the largest cutoff whose complete lower/equal groups fit the noise
+ * allowance.  Three-way partitioning keeps equal coefficients together, as
+ * the old sorted walk did, but avoids sorting every scalefactor band.
+ */
+static FLOAT truncate_threshold(FLOAT* const values, int count, FLOAT allowed_noise) {
+    int lower = 0;
+    int upper = count;
+    FLOAT included_threshold = 0.0;
+
+    while (lower < upper) {
+        int const middle = lower + (upper - lower) / 2;
+        FLOAT const pivot = median_float(values[lower], values[middle], values[upper - 1]);
+        int less = lower;
+        int equal = lower;
+        int greater = upper;
+        FLOAT lower_energy = 0.0;
+        FLOAT max_lower = 0.0;
+        FLOAT equal_energy;
+        int i;
+
+        while (equal < greater) {
+            if (EQ(values[equal], pivot)) {
+                equal++;
+            }
+            else if (values[equal] < pivot) {
+                FLOAT const value = values[less];
+                values[less++] = values[equal];
+                values[equal++] = value;
+            }
+            else {
+                FLOAT const value = values[--greater];
+                values[greater] = values[equal];
+                values[equal] = value;
+            }
+        }
+
+        for (i = lower; i < less; i++) {
+            FLOAT const value = values[i];
+            lower_energy += value * value;
+            if (max_lower < value)
+                max_lower = value;
+        }
+        equal_energy = pivot * pivot * (greater - less);
+
+        if (lower_energy > allowed_noise) {
+            if (less == lower)
+                return included_threshold;
+            upper = less;
+            continue;
+        }
+        if (lower_energy + equal_energy > allowed_noise)
+            return max_lower > 0.0 ? max_lower : included_threshold;
+
+        allowed_noise -= lower_energy + equal_energy;
+        included_threshold = pivot;
+        if (greater == upper)
+            return 0.0;
+        lower = greater;
+    }
+
+    return included_threshold;
 }
 
 static void trancate_smallspectrums(lame_internal_flags const* gfc, gr_info* const gi, const FLOAT* const l3_xmin, FLOAT* const work) {
@@ -553,35 +619,17 @@ static void trancate_smallspectrums(lame_internal_flags const* gfc, gr_info* con
         sfb = 6;
     do {
         FLOAT allowedNoise, trancateThreshold;
-        int nsame, start;
 
         width = gi->width[sfb];
         j += width;
         if (distort[sfb] >= 1.0)
             continue;
 
-        qsort(&work[j - width], width, sizeof(FLOAT), floatcompare);
         if (EQ(work[j - 1], 0.0))
             continue; /* all zero sfb */
 
         allowedNoise = (1.0 - distort[sfb]) * l3_xmin[sfb];
-        trancateThreshold = 0.0;
-        start = 0;
-        do {
-            FLOAT noise;
-            for (nsame = 1; start + nsame < width; nsame++)
-                if (NEQ(work[start + j - width], work[start + j + nsame - width]))
-                    break;
-
-            noise = work[start + j - width] * work[start + j - width] * nsame;
-            if (allowedNoise < noise) {
-                if (start != 0)
-                    trancateThreshold = work[start + j - width - 1];
-                break;
-            }
-            allowedNoise -= noise;
-            start += nsame;
-        } while (start < width);
+        trancateThreshold = truncate_threshold(&work[j - width], width, allowedNoise);
         if (EQ(trancateThreshold, 0.0))
             continue;
 
