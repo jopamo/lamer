@@ -96,7 +96,7 @@ static int16_t sample_to_short(unsigned char const *sample, unsigned int bits) {
   int32_t value;
 
   if (bits == 8)
-    return (int16_t)(((int)sample[0] - 128) << 8);
+    return (int16_t)(((int)sample[0] - 128) * 256);
   if (bits == 16)
     return (int16_t)read_le16(sample);
   if (bits == 24) {
